@@ -138,6 +138,17 @@ button, .button {
 }
 .table th { color: var(--color-muted); font-weight: 600; font-size: 0.85rem; }
 
+.table.sortable th[data-sort] { cursor: pointer; user-select: none; }
+.table.sortable th[data-sort]:hover { color: var(--color-primary); }
+.table.sortable th[data-sort]::after {
+  content: "";
+  display: inline-block;
+  width: 1em;
+  margin-left: 2px;
+}
+.table.sortable th.sort-asc::after { content: "\25B2"; }
+.table.sortable th.sort-desc::after { content: "\25BC"; }
+
 h1 { font-size: 1.6rem; margin: 0 0 4px; }
 h2 { font-size: 1.1rem; margin: 0 0 12px; }
 
@@ -167,6 +178,21 @@ th.heatmap-corner, td.heatmap-name {
   text-align: left;
   padding: 4px 10px;
   white-space: nowrap;
+}
+td.heatmap-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.heat-badge {
+  display: inline-block;
+  min-width: 34px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.7rem;
+  text-align: center;
 }
 th.heatmap-topic {
   background: var(--color-topic-header);

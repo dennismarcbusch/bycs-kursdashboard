@@ -6,6 +6,7 @@ können hier ergänzt werden, ohne den Importer anzufassen.
 
 from __future__ import annotations
 
+from app.dashboard.colorscale import sequential_color
 from app.models import ClassDashboard, Import, Student
 
 SONSTIGE = "Sonstige"
@@ -54,7 +55,12 @@ def build_stats(class_dashboard: ClassDashboard, import_: Import) -> dict:
     total_possible = sum(v["total"] for v in per_student.values())
 
     def with_percent(values):
-        return [{**v, "percent": _percent(v["completed"], v["total"])} for v in values]
+        result = []
+        for v in values:
+            percent = _percent(v["completed"], v["total"])
+            heat_bg, heat_text = sequential_color(percent)
+            result.append({**v, "percent": percent, "heat_bg": heat_bg, "heat_text": heat_text})
+        return result
 
     topic_groups = _topic_groups(class_dashboard)
 
@@ -78,8 +84,10 @@ def build_stats(class_dashboard: ClassDashboard, import_: Import) -> dict:
             }
         )
 
+    per_student_list = sorted(with_percent(per_student.values()), key=lambda x: x["name"])
+
     heatmap_rows = []
-    for student in sorted(per_student.values(), key=lambda s: s["name"]):
+    for student in per_student_list:
         cells = []
         for group in topic_groups:
             for activity in group["activities"]:
@@ -92,7 +100,14 @@ def build_stats(class_dashboard: ClassDashboard, import_: Import) -> dict:
                     }
                 )
         heatmap_rows.append(
-            {"student_id": student["id"], "student_name": student["name"], "cells": cells}
+            {
+                "student_id": student["id"],
+                "student_name": student["name"],
+                "percent": student["percent"],
+                "heat_bg": student["heat_bg"],
+                "heat_text": student["heat_text"],
+                "cells": cells,
+            }
         )
 
     return {
@@ -101,7 +116,7 @@ def build_stats(class_dashboard: ClassDashboard, import_: Import) -> dict:
         "total_possible": total_possible,
         "student_count": len(per_student),
         "activity_count": len(per_activity_totals),
-        "per_student": sorted(with_percent(per_student.values()), key=lambda x: x["name"]),
+        "per_student": per_student_list,
         "per_topic": per_topic,
         "heatmap": {
             "topic_groups": [
