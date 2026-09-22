@@ -25,9 +25,11 @@ def create_app(config_object=Config):
 
     from app.auth.routes import bp as auth_bp
     from app.dashboard.routes import bp as dashboard_bp
+    from app.dashboard.topics_routes import bp as topics_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
+    app.register_blueprint(topics_bp)
 
     with app.app_context():
         db.create_all()

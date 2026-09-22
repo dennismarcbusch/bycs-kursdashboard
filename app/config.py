@@ -13,3 +13,7 @@ class Config:
     LDAP_TEACHER_GROUP_DN = os.environ.get(
         "LDAP_TEACHER_GROUP_DN", "cn=Lehrer,cn=groups,dc=schule,dc=local"
     )
+
+    # NUR für lokale Entwicklung ohne LDAP-Server: überspringt den LDAP-Login.
+    # Muss in Produktion unbedingt false/unset bleiben.
+    DEV_LOGIN_ENABLED = os.environ.get("DEV_LOGIN_ENABLED", "false").lower() == "true"

@@ -98,10 +98,14 @@ def test_build_stats(app):
         imp = import_csv(cd, f)
     db.session.commit()
 
-    stats = build_stats(imp)
+    stats = build_stats(cd, imp)
     assert stats["student_count"] == 2
     assert stats["activity_count"] == 3
     # Erika: 2/3 abgeschlossen, Max: 1/3 abgeschlossen -> gesamt 3/6 = 50%
     assert stats["total_completed"] == 3
     assert stats["total_possible"] == 6
     assert stats["overall_percent"] == 50.0
+    # Ohne Themenbereiche landet alles unter "Sonstige".
+    assert len(stats["per_topic"]) == 1
+    assert stats["per_topic"][0]["name"] == "Sonstige"
+    assert stats["per_topic"][0]["total"] == 6

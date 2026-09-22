@@ -1,8 +1,20 @@
-from flask import Blueprint, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 
 from app.auth.ldap_auth import authenticate
 
 bp = Blueprint("auth", __name__)
+
+
+@bp.route("/dev-login")
+def dev_login():
+    """Login-Umgehung nur für die lokale Entwicklung ohne LDAP-Server (siehe Config.DEV_LOGIN_ENABLED)."""
+    if not current_app.config["DEV_LOGIN_ENABLED"]:
+        return redirect(url_for("auth.login"))
+
+    session.clear()
+    session["username"] = "dev-lehrkraft"
+    session["display_name"] = "Dev-Lehrkraft"
+    return redirect(url_for("dashboard.list_dashboards"))
 
 
 @bp.route("/login", methods=["GET", "POST"])
@@ -25,7 +37,7 @@ def login():
         session["display_name"] = display_name
         return redirect(request.args.get("next") or url_for("dashboard.list_dashboards"))
 
-    return render_template("auth/login.html")
+    return render_template("auth/login.html", dev_login_enabled=current_app.config["DEV_LOGIN_ENABLED"])
 
 
 @bp.route("/logout")

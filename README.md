@@ -11,10 +11,16 @@ Details zum Funktionsumfang, Datenmodell und den offenen Punkten: [REQUIREMENTS.
 - Jede Lehrkraft verwaltet eigene Klassen-Dashboards.
 - CSV-Export des Moodle-Berichts "Aktivitätsabschluss" (Bericht: Fortschritt) manuell
   hochladen.
-- Dashboard zeigt Gesamtfortschritt, Fortschritt pro Schüler:in und pro Aktivität
-  (Chart.js-Balkendiagramme + Tabelle).
 - Die Aktivitätenliste wird bei jedem Import neu aus der CSV-Kopfzeile bestimmt - neue
   Aktivitäten im Kurs werden automatisch erkannt.
+- Aktivitäten können manuell **Themenbereichen** zugeordnet werden (Verwaltungsseite pro
+  Klasse; die Moodle-CSV enthält keine Information über Kursabschnitte). Die Zuordnung
+  bleibt über künftige Importe erhalten, neue Aktivitäten landen zunächst unter "Sonstige".
+- Dashboard zeigt: Gesamtfortschritt, Fortschritts-Kacheln pro Themenbereich, eine
+  Heatmap (Schüler:innen × Aktivitäten, nach Themenbereich gruppiert) für den
+  Klassenüberblick sowie eine Detailtabelle.
+- Klick auf eine/n Schüler:in öffnet eine Detailseite mit einer nach Themenbereich
+  gruppierten Checkliste (inkl. Abschlussdatum, falls im Export vorhanden).
 
 Automatischer CSV-Abruf per Login (V2) und Gruppen-Auswahl statt freier Klassenanlage (V3)
 sind in den Requirements skizziert, aber noch nicht implementiert.
@@ -60,6 +66,7 @@ Alle Einstellungen erfolgen über Umgebungsvariablen (siehe `.env.example`):
 | `LDAP_USER_DN_TEMPLATE` | Bind-DN/UPN-Vorlage, `{username}` wird ersetzt |
 | `LDAP_TEACHER_GROUP_DN` | DN der Gruppe, die sich anmelden darf |
 | `DATABASE_URL` | optional, überschreibt den Standard-SQLite-Pfad (`instance/app.db`) |
+| `DEV_LOGIN_ENABLED` | `true`/`false` - **nur lokale Entwicklung**: blendet einen Login-Bypass ohne LDAP ein (`/dev-login`). In Produktion niemals setzen. |
 
 ## Bekannte Einschränkungen (V1)
 
@@ -72,3 +79,5 @@ Alle Einstellungen erfolgen über Umgebungsvariablen (siehe `.env.example`):
   angepasst werden.
 - Kein Datenbank-Migrationswerkzeug (Flask-Migrate) - Schema-Änderungen erfordern aktuell
   ein manuelles Migrieren/Neuanlegen der SQLite-Datei.
+- Themenbereiche werden pro Klasse manuell gepflegt (kein Auto-Import aus Moodle-Kursabschnitten
+  - das wäre erst mit der Moodle-API in V2/V3 möglich).

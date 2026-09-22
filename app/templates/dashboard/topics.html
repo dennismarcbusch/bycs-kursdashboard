@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Themenbereiche - {{ dashboard.name }}{% endblock %}
+{% block content %}
+  <div class="page-header">
+    <h1>Themenbereiche - {{ dashboard.name }}</h1>
+    <a href="{{ url_for('dashboard.detail', dashboard_id=dashboard.id) }}">&larr; Zurück zum Dashboard</a>
+  </div>
+
+  <div class="card card-narrow" style="margin:0 0 20px">
+    <h2>Neuen Themenbereich anlegen</h2>
+    <form method="post">
+      <input type="hidden" name="action" value="create_topic">
+      <label for="name">Name</label>
+      <input type="text" id="name" name="name" required placeholder="z. B. IPv4 &amp; Subnetting">
+      <button type="submit">Anlegen</button>
+    </form>
+  </div>
+
+  {% if dashboard.topics %}
+    <div class="card" style="margin-bottom:20px">
+      <h2>Bestehende Themenbereiche</h2>
+      <ul class="topic-list">
+        {% for topic in dashboard.topics %}
+          <li>
+            {{ topic.name }}
+            <span class="muted">({{ topic.activities | length }} Aktivitäten)</span>
+            <form method="post" action="{{ url_for('topics.delete', dashboard_id=dashboard.id, topic_id=topic.id) }}"
+                  style="display:inline" onsubmit="return confirm('Themenbereich \'{{ topic.name }}\' löschen? Zugeordnete Aktivitäten werden zu \'Sonstige\'.');">
+              <button type="submit" class="link-danger">Löschen</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  {% if dashboard.activities %}
+    <div class="card">
+      <h2>Aktivitäten zuordnen</h2>
+      {% if not dashboard.topics %}
+        <p class="muted">Lege zuerst mindestens einen Themenbereich an.</p>
+      {% else %}
+        <form method="post">
+          <input type="hidden" name="action" value="assign">
+          <table class="table">
+            <thead>
+              <tr><th>Aktivität</th><th>Themenbereich</th></tr>
+            </thead>
+            <tbody>
+              {% for activity in dashboard.activities | sort(attribute="name") %}
+                <tr>
+                  <td>{{ activity.name }}</td>
+                  <td>
+                    <select name="activity-{{ activity.id }}">
+                      <option value="" {{ "selected" if not activity.topic_id }}>Sonstige</option>
+                      {% for topic in dashboard.topics %}
+                        <option value="{{ topic.id }}" {{ "selected" if activity.topic_id == topic.id }}>
+                          {{ topic.name }}
+                        </option>
+                      {% endfor %}
+                    </select>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <button type="submit">Zuordnung speichern</button>
+        </form>
+      {% endif %}
+    </div>
+  {% else %}
+    <p class="muted">Für diese Klasse wurden noch keine Aktivitäten importiert.</p>
+  {% endif %}
+{% endblock %}

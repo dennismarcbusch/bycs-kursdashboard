@@ -13,5 +13,10 @@
 
       <button type="submit">Anmelden</button>
     </form>
+    {% if dev_login_enabled %}
+      <p class="muted" style="margin-top:16px">
+        <a href="{{ url_for('auth.dev_login') }}">Dev-Login ohne LDAP (nur lokale Entwicklung)</a>
+      </p>
+    {% endif %}
   </div>
 {% endblock %}

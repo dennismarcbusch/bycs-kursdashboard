@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{{ student.full_name }} - {{ dashboard.name }}{% endblock %}
+{% block content %}
+  <div class="page-header">
+    <h1>{{ student.full_name }}</h1>
+    <a href="{{ url_for('dashboard.detail', dashboard_id=dashboard.id) }}">&larr; Zurück zu {{ dashboard.name }}</a>
+  </div>
+
+  <div class="card stat-card" style="margin-bottom:20px">
+    <div class="stat-value">{{ detail.percent }}%</div>
+    <div class="stat-label">Aktivitäten abgeschlossen</div>
+    <div class="stat-sub">{{ detail.completed }} / {{ detail.total }}</div>
+  </div>
+
+  {% for topic in detail.topics %}
+    <div class="card topic-block">
+      <div class="topic-block-header">
+        <h2>{{ topic.name }}</h2>
+        <span class="muted">{{ topic.completed }} / {{ topic.total }} &middot; {{ topic.percent }}%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-bar-fill" style="width: {{ topic.percent }}%"></div>
+      </div>
+      <ul class="checklist">
+        {% for activity in topic.activities %}
+          <li class="{{ 'checklist-done' if activity.completed else 'checklist-open' }}">
+            <span class="checklist-icon">{{ "✓" if activity.completed else "✗" }}</span>
+            {{ activity.name }}
+            {% if activity.completed_at %}
+              <span class="muted checklist-date">{{ activity.completed_at.strftime('%d.%m.%Y') }}</span>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endfor %}
+{% endblock %}

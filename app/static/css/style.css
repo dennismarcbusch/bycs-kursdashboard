@@ -11,6 +11,9 @@
   --color-success-text: #047857;
   --color-error-bg: #fef2f2;
   --color-error-text: #b91c1c;
+  --color-cell-done: #86efac;
+  --color-cell-open: #f1f2f4;
+  --color-topic-header: #eef2ff;
   --radius: 10px;
 }
 
@@ -27,6 +30,9 @@
     --color-success-text: #34d399;
     --color-error-bg: #2a1414;
     --color-error-text: #f87171;
+    --color-cell-done: #15803d;
+    --color-cell-open: #2c3038;
+    --color-topic-header: #23283a;
   }
 }
 
@@ -134,3 +140,103 @@ button, .button {
 
 h1 { font-size: 1.6rem; margin: 0 0 4px; }
 h2 { font-size: 1.1rem; margin: 0 0 12px; }
+
+/* Themen-Kacheln */
+.grid-topics { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 8px; }
+.topic-tile { padding: 14px 16px; }
+.topic-tile-name { font-weight: 600; margin-bottom: 8px; }
+.topic-tile-sub { color: var(--color-muted); font-size: 0.85rem; margin-top: 6px; }
+
+.progress-bar {
+  height: 8px;
+  background: var(--color-cell-open);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.progress-bar-fill { height: 100%; background: var(--color-primary); }
+
+/* Heatmap */
+.heatmap-wrap { overflow-x: auto; padding: 16px 12px; }
+table.heatmap { border-collapse: collapse; font-size: 0.75rem; }
+table.heatmap th, table.heatmap td { border: 1px solid var(--color-border); }
+th.heatmap-corner, td.heatmap-name {
+  position: sticky;
+  left: 0;
+  background: var(--color-surface);
+  z-index: 1;
+  text-align: left;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+th.heatmap-topic {
+  background: var(--color-topic-header);
+  padding: 4px 6px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+th.heatmap-activity {
+  height: 140px;
+  min-width: 22px;
+  max-width: 22px;
+  padding: 4px 2px;
+  vertical-align: bottom;
+}
+th.heatmap-activity span {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+  font-weight: 400;
+  color: var(--color-muted);
+}
+td.heatmap-cell { width: 22px; min-width: 22px; padding: 0; }
+td.cell-done { background: var(--color-cell-done); }
+td.cell-open { background: var(--color-cell-open); }
+tr.heatmap-row { cursor: pointer; }
+tr.heatmap-row:hover td.heatmap-name { text-decoration: underline; color: var(--color-primary); }
+
+/* Checkliste (Schüler-Detailseite) */
+.topic-block { margin-bottom: 16px; }
+.topic-block-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.topic-block-header h2 { margin: 0; }
+.checklist { list-style: none; margin: 12px 0 0; padding: 0; }
+.checklist li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.checklist li:last-child { border-bottom: none; }
+.checklist-icon { width: 18px; text-align: center; font-weight: 700; }
+.checklist-done .checklist-icon { color: var(--color-success-text); }
+.checklist-open .checklist-icon { color: var(--color-muted); }
+.checklist-open { color: var(--color-muted); }
+.checklist-date { margin-left: auto; font-size: 0.8rem; }
+
+/* Themenbereiche verwalten */
+.topic-list { list-style: none; margin: 0; padding: 0; }
+.topic-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.topic-list li:last-child { border-bottom: none; }
+.link-danger {
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--color-danger);
+  cursor: pointer;
+  font-size: 0.85rem;
+  text-decoration: underline;
+}
+select {
+  padding: 6px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg);
+  color: var(--color-text);
+}

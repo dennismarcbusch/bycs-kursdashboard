@@ -29,6 +29,12 @@ class ClassDashboard(db.Model):
     activities = db.relationship(
         "Activity", backref="class_dashboard", cascade="all, delete-orphan"
     )
+    topics = db.relationship(
+        "Topic",
+        backref="class_dashboard",
+        cascade="all, delete-orphan",
+        order_by="Topic.id",
+    )
 
 
 class Import(db.Model):
@@ -63,12 +69,36 @@ class Student(db.Model):
     )
 
 
+class Topic(db.Model):
+    """Themenbereich, dem eine Lehrkraft Aktivitäten manuell zuordnet.
+
+    Der Moodle-CSV-Export enthält keine Information über Kursabschnitte - die
+    Zuordnung zu Themenbereichen wird daher in der App gepflegt (siehe
+    app/dashboard/topics_routes.py) und bleibt über künftige Importe hinweg
+    erhalten, da Aktivitäten anhand ihres Namens wiedererkannt werden.
+    """
+
+    id = db.Column(db.Integer, primary_key=True)
+    class_dashboard_id = db.Column(
+        db.Integer, db.ForeignKey("class_dashboard.id"), nullable=False
+    )
+    name = db.Column(db.String(200), nullable=False)
+
+    activities = db.relationship("Activity", backref="topic", order_by="Activity.id")
+
+    __table_args__ = (
+        db.UniqueConstraint("class_dashboard_id", "name", name="uq_topic_per_class"),
+    )
+
+
 class Activity(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     class_dashboard_id = db.Column(
         db.Integer, db.ForeignKey("class_dashboard.id"), nullable=False
     )
     name = db.Column(db.String(300), nullable=False)
+    # Kein Themenbereich zugeordnet -> erscheint in der Oberfläche als "Sonstige".
+    topic_id = db.Column(db.Integer, db.ForeignKey("topic.id"), nullable=True)
 
     __table_args__ = (
         db.UniqueConstraint(

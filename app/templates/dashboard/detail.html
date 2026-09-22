@@ -4,6 +4,7 @@
   <div class="page-header">
     <h1>{{ dashboard.name }}</h1>
     <div class="actions">
+      <a class="button" href="{{ url_for('topics.manage', dashboard_id=dashboard.id) }}">Themenbereiche</a>
       <a class="button" href="{{ url_for('dashboard.upload', dashboard_id=dashboard.id) }}">CSV importieren</a>
       <form method="post" action="{{ url_for('dashboard.delete', dashboard_id=dashboard.id) }}"
             onsubmit="return confirm('Klasse \'{{ dashboard.name }}\' inkl. aller Importe wirklich löschen?');"
@@ -30,18 +31,59 @@
       </div>
     </div>
 
-    <div class="grid grid-charts">
-      <div class="card">
-        <h2>Fortschritt pro Schüler:in</h2>
-        <canvas id="chart-students"></canvas>
-      </div>
-      <div class="card">
-        <h2>Fortschritt pro Aktivität</h2>
-        <canvas id="chart-activities"></canvas>
-      </div>
+    <h2>Fortschritt nach Themenbereich</h2>
+    {% if stats.per_topic | length == 1 and stats.per_topic[0].name == "Sonstige" %}
+      <p class="muted">
+        Noch keine Themenbereiche angelegt. <a href="{{ url_for('topics.manage', dashboard_id=dashboard.id) }}">Jetzt einrichten</a>,
+        um Aktivitäten thematisch zu gruppieren.
+      </p>
+    {% endif %}
+    <div class="grid grid-topics">
+      {% for topic in stats.per_topic %}
+        <div class="card topic-tile">
+          <div class="topic-tile-name">{{ topic.name }}</div>
+          <div class="progress-bar">
+            <div class="progress-bar-fill" style="width: {{ topic.percent }}%"></div>
+          </div>
+          <div class="topic-tile-sub">{{ topic.completed }} / {{ topic.total }} &middot; {{ topic.percent }}%</div>
+        </div>
+      {% endfor %}
     </div>
 
-    <div class="card">
+    <h2 style="margin-top:24px">Übersicht: wer hat was erledigt?</h2>
+    <p class="muted">Grün = abgeschlossen. Zeile anklicken für die Detailansicht einer/eines Schüler:in.</p>
+    <div class="card heatmap-wrap">
+      <table class="heatmap">
+        <thead>
+          <tr>
+            <th class="heatmap-corner" rowspan="2">Name</th>
+            {% for group in stats.heatmap.topic_groups %}
+              <th class="heatmap-topic" colspan="{{ group.activities | length }}">{{ group.name }}</th>
+            {% endfor %}
+          </tr>
+          <tr>
+            {% for group in stats.heatmap.topic_groups %}
+              {% for activity in group.activities %}
+                <th class="heatmap-activity" title="{{ activity.name }}"><span>{{ activity.name }}</span></th>
+              {% endfor %}
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in stats.heatmap.rows %}
+            <tr class="heatmap-row" onclick="location.href='{{ url_for('dashboard.student_detail', dashboard_id=dashboard.id, student_id=row.student_id) }}'">
+              <td class="heatmap-name">{{ row.student_name }}</td>
+              {% for cell in row.cells %}
+                <td class="heatmap-cell {{ 'cell-done' if cell.completed else 'cell-open' }}"
+                    title="{{ 'abgeschlossen' if cell.completed else 'nicht abgeschlossen' }}{% if cell.completed_at %} am {{ cell.completed_at.strftime('%d.%m.%Y') }}{% endif %}"></td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="margin-top:20px">
       <h2>Details pro Schüler:in</h2>
       <table class="table">
         <thead>
@@ -50,7 +92,7 @@
         <tbody>
           {% for s in stats.per_student %}
             <tr>
-              <td>{{ s.name }}</td>
+              <td><a href="{{ url_for('dashboard.student_detail', dashboard_id=dashboard.id, student_id=s.id) }}">{{ s.name }}</a></td>
               <td>{{ s.completed }}</td>
               <td>{{ s.total }}</td>
               <td>{{ s.percent }}%</td>
@@ -59,37 +101,5 @@
         </tbody>
       </table>
     </div>
-
-    <script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
-    <script>
-      const perStudent = {{ stats.per_student | tojson }};
-      const perActivity = {{ stats.per_activity | tojson }};
-
-      new Chart(document.getElementById('chart-students'), {
-        type: 'bar',
-        data: {
-          labels: perStudent.map(s => s.name),
-          datasets: [{ label: '% abgeschlossen', data: perStudent.map(s => s.percent) }],
-        },
-        options: {
-          indexAxis: 'y',
-          scales: { x: { min: 0, max: 100 } },
-          plugins: { legend: { display: false } },
-        },
-      });
-
-      new Chart(document.getElementById('chart-activities'), {
-        type: 'bar',
-        data: {
-          labels: perActivity.map(a => a.name),
-          datasets: [{ label: '% abgeschlossen', data: perActivity.map(a => a.percent) }],
-        },
-        options: {
-          indexAxis: 'y',
-          scales: { x: { min: 0, max: 100 } },
-          plugins: { legend: { display: false } },
-        },
-      });
-    </script>
   {% endif %}
 {% endblock %}
