@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}CSV importieren - {{ dashboard.name }}{% endblock %}
+{% block content %}
+  <div class="card card-narrow">
+    <h1>CSV importieren - {{ dashboard.name }}</h1>
+    <p class="muted">
+      Exportiere im Kurs den Bericht "Aktivitätsabschluss" als CSV und lade die Datei hier hoch.
+    </p>
+    <form method="post" enctype="multipart/form-data">
+      <label for="csv_file">CSV-Datei</label>
+      <input type="file" id="csv_file" name="csv_file" accept=".csv" required>
+      <button type="submit">Importieren</button>
+    </form>
+    <p><a href="{{ url_for('dashboard.detail', dashboard_id=dashboard.id) }}">&larr; Zurück zum Dashboard</a></p>
+  </div>
+{% endblock %}

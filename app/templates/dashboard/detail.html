@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}{{ dashboard.name }} - BYCS-Kursdashboard{% endblock %}
+{% block content %}
+  <div class="page-header">
+    <h1>{{ dashboard.name }}</h1>
+    <div class="actions">
+      <a class="button" href="{{ url_for('dashboard.upload', dashboard_id=dashboard.id) }}">CSV importieren</a>
+      <form method="post" action="{{ url_for('dashboard.delete', dashboard_id=dashboard.id) }}"
+            onsubmit="return confirm('Klasse \'{{ dashboard.name }}\' inkl. aller Importe wirklich löschen?');"
+            style="display:inline">
+        <button type="submit" class="button button-danger">Löschen</button>
+      </form>
+    </div>
+  </div>
+
+  {% if not latest_import %}
+    <p class="muted">Für diese Klasse wurde noch keine CSV-Datei importiert.</p>
+  {% else %}
+    <p class="muted">
+      Stand: {{ latest_import.imported_at.strftime('%d.%m.%Y %H:%M') }}
+      &middot; {{ stats.student_count }} Schüler:innen
+      &middot; {{ stats.activity_count }} Aktivitäten
+    </p>
+
+    <div class="grid grid-stats">
+      <div class="card stat-card">
+        <div class="stat-value">{{ stats.overall_percent }}%</div>
+        <div class="stat-label">Aktivitäten insgesamt abgeschlossen</div>
+        <div class="stat-sub">{{ stats.total_completed }} / {{ stats.total_possible }}</div>
+      </div>
+    </div>
+
+    <div class="grid grid-charts">
+      <div class="card">
+        <h2>Fortschritt pro Schüler:in</h2>
+        <canvas id="chart-students"></canvas>
+      </div>
+      <div class="card">
+        <h2>Fortschritt pro Aktivität</h2>
+        <canvas id="chart-activities"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Details pro Schüler:in</h2>
+      <table class="table">
+        <thead>
+          <tr><th>Name</th><th>Abgeschlossen</th><th>Von</th><th>%</th></tr>
+        </thead>
+        <tbody>
+          {% for s in stats.per_student %}
+            <tr>
+              <td>{{ s.name }}</td>
+              <td>{{ s.completed }}</td>
+              <td>{{ s.total }}</td>
+              <td>{{ s.percent }}%</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
+    <script>
+      const perStudent = {{ stats.per_student | tojson }};
+      const perActivity = {{ stats.per_activity | tojson }};
+
+      new Chart(document.getElementById('chart-students'), {
+        type: 'bar',
+        data: {
+          labels: perStudent.map(s => s.name),
+          datasets: [{ label: '% abgeschlossen', data: perStudent.map(s => s.percent) }],
+        },
+        options: {
+          indexAxis: 'y',
+          scales: { x: { min: 0, max: 100 } },
+          plugins: { legend: { display: false } },
+        },
+      });
+
+      new Chart(document.getElementById('chart-activities'), {
+        type: 'bar',
+        data: {
+          labels: perActivity.map(a => a.name),
+          datasets: [{ label: '% abgeschlossen', data: perActivity.map(a => a.percent) }],
+        },
+        options: {
+          indexAxis: 'y',
+          scales: { x: { min: 0, max: 100 } },
+          plugins: { legend: { display: false } },
+        },
+      });
+    </script>
+  {% endif %}
+{% endblock %}

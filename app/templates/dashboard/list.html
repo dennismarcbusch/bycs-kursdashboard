@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Meine Klassen - BYCS-Kursdashboard{% endblock %}
+{% block content %}
+  <div class="page-header">
+    <h1>Meine Klassen</h1>
+    <a class="button" href="{{ url_for('dashboard.new_dashboard') }}">+ Neue Klasse</a>
+  </div>
+
+  {% if dashboards %}
+    <div class="grid">
+      {% for d in dashboards %}
+        <a class="card card-link" href="{{ url_for('dashboard.detail', dashboard_id=d.id) }}">
+          <h2>{{ d.name }}</h2>
+          {% if d.imports %}
+            <p class="muted">Letzter Import: {{ d.imports[0].imported_at.strftime('%d.%m.%Y %H:%M') }}</p>
+          {% else %}
+            <p class="muted">Noch kein CSV importiert</p>
+          {% endif %}
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="muted">Noch keine Klasse angelegt.</p>
+  {% endif %}
+{% endblock %}

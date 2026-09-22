@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Anmelden - BYCS-Kursdashboard{% endblock %}
+{% block content %}
+  <div class="card card-narrow">
+    <h1>Anmelden</h1>
+    <p class="muted">Login mit deinem UCS-Schulaccount (Gruppe "Lehrer").</p>
+    <form method="post">
+      <label for="username">Benutzername</label>
+      <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+
+      <label for="password">Passwort</label>
+      <input type="password" id="password" name="password" autocomplete="current-password" required>
+
+      <button type="submit">Anmelden</button>
+    </form>
+  </div>
+{% endblock %}
