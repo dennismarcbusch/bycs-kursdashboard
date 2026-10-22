@@ -30,8 +30,10 @@ Details zum Funktionsumfang, Datenmodell und den offenen Punkten: [REQUIREMENTS.
 
 Eine anonymisierte Test-CSV liegt in `tests/fixtures/demo_klasse.csv` (erfundene Namen).
 
-Automatischer CSV-Abruf per Login (V2) und Gruppen-Auswahl statt freier Klassenanlage (V3)
-sind in den Requirements skizziert, aber noch nicht implementiert.
+Der CSV-Upload ist die Grundfunktion und bleibt dauerhaft erhalten. Geplant sind ein
+halbautomatischer Abruf auf Klick per Service-User-Login (V2), ggf. ein vollautomatischer
+Abruf (V3) und die Gruppen-Auswahl statt freier Klassenanlage (V4); siehe Requirements, noch
+nicht implementiert.
 
 ## Lokale Entwicklung
 

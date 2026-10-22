@@ -6,9 +6,15 @@ Repo: https://github.com/dennismarcbusch/bycs-kursdashboard
 
 Lehrkräfte sollen den Kursfortschritt (Aktivitätsabschluss) ihrer Schüler:innen in
 ByCS-Lernplattform-Kursen (Moodle-Fork) übersichtlich und grafisch aufbereitet sehen können –
-als Alternative zum unübersichtlichen Moodle-Standardbericht. Datengrundlage ist zunächst ein
-manueller CSV-Export des Aktivitätsabschluss-Berichts; später soll die App die CSVs selbst und
-automatisiert über einen Login abrufen.
+als Alternative zum unübersichtlichen Moodle-Standardbericht. Datengrundlage ist der
+CSV-Export des Aktivitätsabschluss-Berichts. In V1 lädt die Lehrkraft die CSV selbst hoch (diese
+Funktion bleibt dauerhaft erhalten); später soll die App die CSV auf Knopfdruck (V2) und ggf.
+vollautomatisch (V3) über einen Login abrufen.
+
+Versionsplan: **V1** CSV-Upload (Fokus jetzt) · **V2** halbautomatischer Abruf auf manuellen
+Klick · **V3** ggf. vollautomatischer Abruf per Scheduler · **V4** Gruppen-Auswahl.
+Eine Moodle-Webservice-API steht nicht zur Verfügung; der JSON-Export wurde getestet und
+verworfen (keine Namen, kein stabiler Schlüssel, keine Klassenangabe, keine Datumswerte).
 
 Kernfrage auf einen Blick: **Wie viele der im Kurs vorhandenen Aktivitäten haben die
 Schüler:innen einer Klasse bereits abgeschlossen?** Weitere Auswertungen/Ansichten kommen
@@ -29,18 +35,27 @@ schrittweise hinzu – die Architektur muss dafür erweiterbar sein.
 
 ## 3. Funktionale Anforderungen
 
-### 3.1 V1 – Prototyp: CSV-Upload → Dashboard
+### 3.1 V1 – CSV-Upload → Dashboard
 
 - Login via LDAP/UCS-AD (siehe 4.2).
 - Lehrkraft kann eine oder mehrere **Klassen** anlegen (Name/Bezeichnung frei wählbar), jede
   Klasse gehört genau einer Lehrkraft.
-- Für den Prototyp: Lehrkraft lädt für eine Klasse eine CSV-Datei (Moodle-Export
-  "Aktivitätsabschluss") hoch.
+- Lehrkraft lädt für eine Klasse eine CSV-Datei (Moodle-Export "Aktivitätsabschluss") hoch.
+  **Der Upload ist die Grundfunktion von V1 und bleibt in allen späteren Versionen als
+  gleichwertiger Weg erhalten** (kein bloßer Fallback).
 - Die App parst die CSV und erzeugt ein Dashboard für diese Klasse mit mindestens:
   - Gesamtfortschritt der Klasse (z. B. % abgeschlossener Aktivitäten über alle Schüler:innen
     und Aktivitäten hinweg).
   - Fortschritt pro Schüler:in (wie viele von X Aktivitäten abgeschlossen).
   - Fortschritt pro Aktivität (wie viele Schüler:innen haben diese Aktivität abgeschlossen).
+- **Klassenansicht**: Rangliste mit Klassenmedian und Einstufung Vorn / Im Feld / Hinterher
+  (oberes/unteres Quartil, ab 4 Lernenden), Veränderung seit dem letzten Import, Gruppenfilter,
+  Liste der offenen Aufgaben je Aktivität, Heatmap nach Fortschritt sortiert.
+- **Schülerdetail**: Auswahl ohne Umweg, offene Aktivitäten oben (Lücken zuerst = offen,
+  obwohl danach im selben Themenbereich etwas erledigt wurde), Vergleich zum Median, Filter
+  "nur offene".
+- Geplant für V1: optionale **Soll-Marke** pro Klasse ("bis hier sollte die Klasse sein") als
+  zusätzlicher Maßstab für voraus/hinterher (braucht ein neues Feld pro Klasse).
 - **Dynamische Aktivitätsliste**: Aktivitäten im Kurs können sich zwischen zwei Auswertungen
   ändern (neue kommen hinzu, alte fallen ggf. weg). Das Datenmodell und der Import dürfen die
   Aktivitätsliste **nicht fest verdrahten** – jeder Import muss die im CSV enthaltenen
@@ -55,21 +70,27 @@ schrittweise hinzu – die Architektur muss dafür erweiterbar sein.
   "abgeschlossen"/"nicht abgeschlossen") muss anhand eines echten Beispiel-Exports geklärt
   werden, bevor der Parser implementiert wird (**offener Punkt, siehe 7**).
 
-### 3.2 V2 – Automatischer CSV-Abruf
+### 3.2 V2 – Halbautomatischer CSV-Abruf (auf Klick)
 
-- Statt manuellem Upload: Für jede Klasse wird eine **konfigurierbare Export-URL** (der
-  Aktivitätsabschluss-Bericht mit CSV-Download-Parametern) hinterlegt.
-- Die App loggt sich regelmäßig (Scheduler, Intervall konfigurierbar, z. B. täglich nachts) über
-  einen zentralen **Dienst-Account** in die ByCS-Lernplattform ein und ruft die hinterlegten
-  URLs ab, um die CSVs automatisiert zu ziehen.
+- Für jede Klasse wird eine **konfigurierbare Export-URL** (der Aktivitätsabschluss-Bericht mit
+  CSV-Download-Parametern) hinterlegt.
+- Die Lehrkraft löst den Abruf per Knopfdruck aus; die App loggt sich über einen zentralen
+  **Dienst-Account** (Service-User) in die ByCS-Lernplattform ein, lädt die CSV und importiert
+  sie wie einen Upload (Quelle "auto"/"manuell abgerufen").
 - Zugangsdaten des Dienst-Accounts werden **nicht im Klartext** in DB/Repo gespeichert, sondern
   z. B. als Umgebungsvariable/Secret bzw. verschlüsselt abgelegt.
 - Fehlerfälle (Login schlägt fehl, URL nicht erreichbar, Session abgelaufen, CSV-Format
   unerwartet) müssen erkannt und der Lehrkraft sichtbar gemacht werden (z. B. "letzter
   erfolgreicher Abruf: ...", Fehlerstatus je Klasse).
-- Manueller Upload (V1) bleibt als Fallback zusätzlich nutzbar.
+- Der Upload (V1) bleibt dauerhaft gleichwertig nutzbar.
 
-### 3.3 V3 – Gruppen-Auswahl statt freier Klassenanlage
+### 3.3 V3 – Vollautomatischer Abruf (ggf.)
+
+- Aufbauend auf V2: Die App ruft die CSVs regelmäßig selbst ab (Scheduler, Intervall
+  konfigurierbar, z. B. täglich nachts). Ob V3 umgesetzt wird, ist offen und hängt von den
+  Erfahrungen mit V2 ab.
+
+### 3.4 V4 – Gruppen-Auswahl statt freier Klassenanlage
 
 - Innerhalb eines ByCS-Kurses werden einzelne Klassen als **Moodle-Gruppen** gepflegt.
 - Statt Klassen "blind" per URL anzulegen, soll die App die im Kurs vorhandenen Gruppen
@@ -77,14 +98,14 @@ schrittweise hinzu – die Architektur muss dafür erweiterbar sein.
   Lehrkraft zur Auswahl anbieten.
 - Ein Dashboard bleibt weiterhin immer an **genau eine** Klasse/Gruppe gebunden.
 
-### 3.4 Weitere Auswertungen (offen für Erweiterung)
+### 3.5 Weitere Auswertungen (offen für Erweiterung)
 
 Die Architektur (Datenmodell + Import) soll so ausgelegt sein, dass zusätzliche Auswertungen/
 Ansichten ergänzt werden können, ohne den Import neu zu bauen, z. B. (Beispiele, nicht
 abschließend, nicht zwingend Teil von V1):
 
-- Zeitlicher Verlauf des Fortschritts (sofern historisierte Importe vorliegen).
-- Filter/Sortierung nach "auffälligen" Schüler:innen (z. B. wenig Fortschritt).
+- Zeitlicher Verlauf des Fortschritts (sofern historisierte Importe vorliegen; der Zuwachs seit
+  dem letzten Import ist bereits umgesetzt).
 - Export/Druckansicht für Elterngespräche.
 
 ## 4. Nicht-funktionale Anforderungen
@@ -125,7 +146,7 @@ abschließend, nicht zwingend Teil von V1):
 - Projekt liefert `Dockerfile` sowie `docker-compose.yml` (Flask/Gunicorn-Service + Volume für
   die SQLite-Datenbankdatei, damit Daten Container-Neustarts überleben).
 - Konfiguration (LDAP-Server, Basis-DN, Gruppenname, Secret-Key, ggf. Dienst-Account-Credentials
-  für V2) über Umgebungsvariablen (`.env`, nicht eingecheckt).
+  für V2/V3) über Umgebungsvariablen (`.env`, nicht eingecheckt).
 
 ### 4.5 Sonstiges
 
@@ -138,8 +159,8 @@ abschließend, nicht zwingend Teil von V1):
 
 - **User**: (kein lokales Passwort) – LDAP-Login-Name, Anzeige-Name, zuletzt eingeloggt.
 - **ClassDashboard**: gehört zu genau einem User; Name/Bezeichnung; Export-URL (für V2);
-  Kurs-Referenz/Gruppe (für V3).
-- **Import**: gehört zu einer ClassDashboard; Zeitstempel; Quelle (Upload/Auto-Abruf); Status.
+  Kurs-Referenz/Gruppe (für V4); Soll-Marke (V1, geplant).
+- **Import**: gehört zu einer ClassDashboard; Zeitstempel; Quelle (Upload/Abruf); Status.
 - **Activity**: Name/Bezeichnung; gehört (lose, über Namen-Matching) zu einer ClassDashboard;
   kann über mehrere Imports hinweg wiederkehren.
 - **Student**: Name; gehört zu einer ClassDashboard.
@@ -162,7 +183,7 @@ abschließend, nicht zwingend Teil von V1):
 2. Genaue LDAP-Verbindungsdaten (Server, Port, TLS, Base-DN, Bind-Methode, Attributname für
    Gruppenmitgliedschaft) werden zur Implementierungszeit benötigt (kein Blocker für die
    Requirements, aber für V1-Umsetzung).
-3. Für V2 (Automatik): genaues Login-Verfahren der ByCS-Plattform (klassisches Formular-Login,
+3. Für V2/V3 (Abruf): genaues Login-Verfahren der ByCS-Plattform (klassisches Formular-Login,
    evtl. Single-Sign-On/Shibboleth?) beeinflusst, ob ein einfacher HTTP-Session-Login reicht oder
    ein Headless-Browser (z. B. Playwright) nötig ist.
 4. Lösch-/Aufbewahrungsfristen für Importe/Dashboards: aktuell keine Vorgabe – ggf. später
