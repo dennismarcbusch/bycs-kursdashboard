@@ -30,14 +30,22 @@ def _percent(completed: int, total: int) -> float:
     return round(100 * completed / total, 1) if total else 0.0
 
 
-def _topic_groups(class_dashboard: ClassDashboard):
-    """Aktivitäten der Klasse, gruppiert nach Themenbereich (Reihenfolge: Topic-Anlage,
-    nicht zugeordnete Aktivitäten zuletzt unter "Sonstige")."""
+def _topic_groups(class_dashboard: ClassDashboard, import_: Import):
+    """Aktivitäten des Imports (in CSV-Reihenfolge), gruppiert nach Themenbereich
+    (Reihenfolge: Topic-Anlage, nicht zugeordnete Aktivitäten zuletzt unter "Sonstige").
+
+    Die Zuordnung läuft über den Aktivitätsnamen und überlebt dadurch jeden Import."""
+    topic_of = {a.activity_name: a.topic_id for a in class_dashboard.topic_assignments}
     groups = [
-        {"id": t.id, "name": t.name, "activities": list(t.activities)}
+        {
+            "id": t.id,
+            "name": t.name,
+            "activities": [a for a in import_.activities if topic_of.get(a.name) == t.id],
+        }
         for t in class_dashboard.topics
     ]
-    unassigned = [a for a in class_dashboard.activities if a.topic_id is None]
+    known = {t.id for t in class_dashboard.topics}
+    unassigned = [a for a in import_.activities if topic_of.get(a.name) not in known]
     if unassigned:
         groups.append({"id": None, "name": SONSTIGE, "activities": unassigned})
     return groups
@@ -112,11 +120,27 @@ def _previous_import(class_dashboard: ClassDashboard, import_: Import) -> Import
     return None
 
 
-def _completed_by_student(import_: Import) -> dict[int, int]:
-    counts: dict[int, int] = {}
+def _completed_by_name(import_: Import, activity_names: set[str]) -> dict[str, int]:
+    """Erledigte Aktivitäten je Schüler:in (über den Namen), nur für die genannten Aktivitäten."""
+    counts: dict[str, int] = {}
     for rec in import_.records:
-        counts[rec.student_id] = counts.get(rec.student_id, 0) + int(rec.completed)
+        if rec.activity.name in activity_names:
+            name = rec.student.full_name
+            counts[name] = counts.get(name, 0) + int(rec.completed)
     return counts
+
+
+def _deltas(import_: Import, previous: Import | None) -> dict[str, int]:
+    """Neu erledigte Aktivitäten seit dem vorherigen Import je Schüler:in (über den Namen).
+
+    Verglichen werden nur Aktivitäten, die in beiden Importen vorkommen, damit hinzugekommene
+    oder entfallene Aktivitäten die Veränderung nicht verfälschen."""
+    if previous is None:
+        return {}
+    common = {a.name for a in import_.activities} & {a.name for a in previous.activities}
+    now = _completed_by_name(import_, common)
+    before = _completed_by_name(previous, common)
+    return {name: now.get(name, 0) - count for name, count in before.items()}
 
 
 def build_stats(class_dashboard: ClassDashboard, import_: Import) -> dict:
@@ -129,7 +153,7 @@ def build_stats(class_dashboard: ClassDashboard, import_: Import) -> dict:
     for rec in import_.records:
         pa = per_activity_totals.setdefault(
             rec.activity_id,
-            {"topic_id": rec.activity.topic_id, "completed": 0, "total": 0},
+            {"completed": 0, "total": 0},
         )
         records_by_key[(rec.student_id, rec.activity_id)] = rec
         pa["total"] += 1
@@ -143,7 +167,7 @@ def build_stats(class_dashboard: ClassDashboard, import_: Import) -> dict:
     total_completed = sum(v["completed"] for v in per_student.values())
     total_possible = sum(v["total"] for v in per_student.values())
 
-    topic_groups = _topic_groups(class_dashboard)
+    topic_groups = _topic_groups(class_dashboard, import_)
 
     per_topic = []
     for group in topic_groups:
@@ -167,11 +191,9 @@ def build_stats(class_dashboard: ClassDashboard, import_: Import) -> dict:
 
     # Veränderung seit dem vorherigen Import (nur sinnvoll, wenn es einen gibt).
     previous = _previous_import(class_dashboard, import_)
-    previous_counts = _completed_by_student(previous) if previous else {}
+    deltas = _deltas(import_, previous)
     for ps in per_student.values():
-        ps["delta"] = (
-            ps["completed"] - previous_counts[ps["id"]] if ps["id"] in previous_counts else None
-        )
+        ps["delta"] = deltas.get(ps["name"])
 
     # Rangliste: weitester zuerst, bei Gleichstand alphabetisch.
     ranking = sorted(per_student.values(), key=lambda s: (-s["percent"], s["name"]))
@@ -267,7 +289,7 @@ def build_student_detail(class_dashboard: ClassDashboard, import_: Import, stude
     open_list = []
     total_completed = 0
     total_possible = 0
-    for group in _topic_groups(class_dashboard):
+    for group in _topic_groups(class_dashboard, import_):
         activities = []
         completed = 0
         for activity in group["activities"]:
@@ -315,10 +337,7 @@ def build_student_detail(class_dashboard: ClassDashboard, import_: Import, stude
     open_list.sort(key=lambda a: not a["gap"])
 
     previous = _previous_import(class_dashboard, import_)
-    previous_counts = _completed_by_student(previous) if previous else {}
-    delta = (
-        total_completed - previous_counts[student.id] if student.id in previous_counts else None
-    )
+    delta = _deltas(import_, previous).get(student.full_name)
 
     return {
         "student_name": student.full_name,

@@ -23,7 +23,7 @@
         {% for topic in dashboard.topics %}
           <li>
             {{ topic.name }}
-            <span class="muted">({{ topic.activities | length }} Aktivitäten)</span>
+            <span class="muted">({{ topic_counts[topic.id] }} Aktivitäten)</span>
             <form method="post" action="{{ url_for('topics.delete', dashboard_id=dashboard.id, topic_id=topic.id) }}"
                   style="display:inline" onsubmit="return confirm('Themenbereich \'{{ topic.name }}\' löschen? Zugeordnete Aktivitäten werden zu \'Sonstige\'.');">
               <button type="submit" class="link-danger">Löschen</button>
@@ -34,7 +34,7 @@
     </div>
   {% endif %}
 
-  {% if dashboard.activities %}
+  {% if activities %}
     <div class="card">
       <h2>Aktivitäten zuordnen</h2>
       {% if not dashboard.topics %}
@@ -47,14 +47,14 @@
               <tr><th>Aktivität</th><th>Themenbereich</th></tr>
             </thead>
             <tbody>
-              {% for activity in dashboard.activities | sort(attribute="name") %}
+              {% for activity in activities %}
                 <tr>
                   <td>{{ activity.name }}</td>
                   <td>
                     <select name="activity-{{ activity.id }}">
-                      <option value="" {{ "selected" if not activity.topic_id }}>Sonstige</option>
+                      <option value="" {{ "selected" if not assignment.get(activity.name) }}>Sonstige</option>
                       {% for topic in dashboard.topics %}
-                        <option value="{{ topic.id }}" {{ "selected" if activity.topic_id == topic.id }}>
+                        <option value="{{ topic.id }}" {{ "selected" if assignment.get(activity.name) == topic.id }}>
                           {{ topic.name }}
                         </option>
                       {% endfor %}

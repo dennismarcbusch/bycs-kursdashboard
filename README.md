@@ -80,14 +80,20 @@ Alle Einstellungen erfolgen über Umgebungsvariablen (siehe `.env.example`):
 
 ## Bekannte Einschränkungen (V1)
 
-- Schüler:innen werden innerhalb einer Klasse über den vollständigen Namen identifiziert
-  (kein stabiler externer Schlüssel im CSV-Export vorhanden). Bei zwei gleichnamigen
-  Schüler:innen in derselben Klasse würden deren Daten aktuell zusammengeführt.
+- Schüler:innen werden innerhalb eines Imports über den vollständigen Namen identifiziert
+  (kein stabiler externer Schlüssel im CSV-Export vorhanden). Gleichnamige Schüler:innen
+  werden mit „(2)" unterschieden; die Zuordnung zwischen zwei Importen für „seit dem letzten
+  Import" läuft ebenfalls über den Namen.
 - Der CSV-Parser erwartet das beobachtete Moodle-Exportformat (Name, E-Mail-Adresse,
   Institution, dann pro Aktivität eine Status- und optional eine Datumsspalte). Weicht ein
   Export davon ab (z. B. andere Spracheinstellung), muss `app/importer/csv_parser.py`
   angepasst werden.
 - Kein Datenbank-Migrationswerkzeug (Flask-Migrate) - Schema-Änderungen erfordern aktuell
-  ein manuelles Migrieren/Neuanlegen der SQLite-Datei.
+  ein manuelles Migrieren/Neuanlegen der SQLite-Datei (zuletzt geändert: Importe sind
+  Schnappschüsse, siehe unten; eine ältere `instance/app.db` muss gelöscht werden).
+- Jeder Import ersetzt den Stand komplett (Schüler:innen, Aktivitäten in CSV-Reihenfolge,
+  Abschlüsse); aufbewahrt werden nur die letzten zwei Importe. Dauerhaft bleiben Klassen,
+  Themenbereiche und deren Zuordnung (über den Aktivitätsnamen). Wird eine Aktivität in
+  Moodle umbenannt, gilt sie als neue Aktivität und muss neu zugeordnet werden.
 - Themenbereiche werden pro Klasse manuell gepflegt (kein Auto-Import aus Moodle-Kursabschnitten
   - das wäre erst mit der Moodle-API in V2/V3 möglich).

@@ -37,6 +37,9 @@ KNOWN_META_HEADERS = {
     "department",
 }
 
+# Aufbewahrte Importe je Klasse: der aktuelle plus der vorherige (für "seit letztem Import").
+KEEP_IMPORTS = 2
+
 COMPLETED_VALUES = {"abgeschlossen", "completed", "erledigt"}
 
 # Mögliche Zeitstempel-Formate in der Datumsspalte je Aktivität.
@@ -115,12 +118,22 @@ def _is_completed(value: str) -> bool:
     return value.strip().lower() in COMPLETED_VALUES
 
 
-def import_csv(class_dashboard, file_stream, original_filename=None, source="upload") -> Import:
-    """Importiert eine CSV-Datei für ein ClassDashboard.
+def _unique(name: str, seen: dict[str, int]) -> str:
+    """Macht mehrfach vorkommende Namen eindeutig ("Name", "Name (2)", ...)."""
+    seen[name] = seen.get(name, 0) + 1
+    return name if seen[name] == 1 else f"{name} ({seen[name]})"
 
-    Legt einen neuen Import samt CompletionRecords an. Ruft KEIN db.session.commit() auf -
-    das obliegt dem Aufrufer (Route), damit Fehler vor dem Commit sauber behandelt werden
-    können.
+
+def import_csv(class_dashboard, file_stream, original_filename=None, source="upload") -> Import:
+    """Importiert eine CSV-Datei als neuen, in sich geschlossenen Stand einer Klasse.
+
+    Schüler:innen, Aktivitäten (in CSV-Reihenfolge) und Abschlüsse werden komplett neu
+    aufgebaut. Aufbewahrt werden nur die letzten KEEP_IMPORTS Importe, ältere werden
+    gelöscht. Dauerhaft bleiben Klasse, Themenbereiche und deren Zuordnung (über den
+    Aktivitätsnamen).
+
+    Ruft KEIN db.session.commit() auf - das obliegt dem Aufrufer (Route), damit Fehler vor
+    dem Commit sauber behandelt werden können.
     """
     raw = file_stream.read()
     text = _decode(raw) if isinstance(raw, bytes) else raw
@@ -133,33 +146,24 @@ def import_csv(class_dashboard, file_stream, original_filename=None, source="upl
     header = rows[0]
     activity_columns = _locate_activity_columns(header)
 
-    existing_activities = {a.name: a for a in class_dashboard.activities}
-    activities = []
-    for name, status_idx, timestamp_idx in activity_columns:
-        activity = existing_activities.get(name)
-        if activity is None:
-            activity = Activity(class_dashboard=class_dashboard, name=name)
-            db.session.add(activity)
-            existing_activities[name] = activity
-        activities.append((activity, status_idx, timestamp_idx))
-
-    existing_students = {s.full_name: s for s in class_dashboard.students}
-
     imp = Import(class_dashboard=class_dashboard, source=source, original_filename=original_filename)
     db.session.add(imp)
 
+    activities = []
+    for position, (name, status_idx, timestamp_idx) in enumerate(activity_columns):
+        activity = Activity(import_=imp, position=position, name=name)
+        db.session.add(activity)
+        activities.append((activity, status_idx, timestamp_idx))
+
+    seen_names: dict[str, int] = {}
     imported_rows = 0
     for row in rows[1:]:
         if not row or not row[0].strip():
             continue
-        full_name = row[0].strip()
         imported_rows += 1
 
-        student = existing_students.get(full_name)
-        if student is None:
-            student = Student(class_dashboard=class_dashboard, full_name=full_name)
-            db.session.add(student)
-            existing_students[full_name] = student
+        student = Student(import_=imp, full_name=_unique(row[0].strip(), seen_names))
+        db.session.add(student)
 
         for activity, status_idx, timestamp_idx in activities:
             status_value = row[status_idx] if status_idx < len(row) else ""
@@ -180,4 +184,19 @@ def import_csv(class_dashboard, file_stream, original_filename=None, source="upl
     if imported_rows == 0:
         raise CsvParseError("Die CSV-Datei enthält keine auswertbaren Zeilen.")
 
+    _prune_old_imports(class_dashboard, newest=imp)
     return imp
+
+
+def _prune_old_imports(class_dashboard, newest: Import) -> None:
+    """Löscht alte Importe, sodass der neue plus die jüngsten Vorgänger übrig bleiben."""
+    db.session.flush()
+    older = (
+        Import.query.filter(
+            Import.class_dashboard_id == class_dashboard.id, Import.id != newest.id
+        )
+        .order_by(Import.imported_at.desc(), Import.id.desc())
+        .all()
+    )
+    for old in older[KEEP_IMPORTS - 1 :]:
+        db.session.delete(old)

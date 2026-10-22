@@ -1,7 +1,7 @@
 from app.dashboard.stats import build_stats, build_student_detail
 from app.extensions import db
 from app.importer.csv_parser import import_csv
-from app.models import ClassDashboard, Student
+from app.models import ClassDashboard
 
 import io
 
@@ -69,7 +69,7 @@ def test_open_activities_sorted_by_open_count(app):
 
 def test_student_detail_marks_gaps_and_class_context(app):
     cd = _make_class([("Anna", [True, False, True, False])] + ROWS[1:])
-    student = Student.query.filter_by(full_name="Anna").one()
+    student = next(s for s in cd.latest_import.students if s.full_name == "Anna")
     detail = build_student_detail(cd, cd.imports[0], student)
 
     assert detail["open"] == 2
@@ -92,3 +92,13 @@ def test_delta_since_previous_import(app):
     by_name = {s["name"]: s for s in stats["ranking"]}
     assert by_name["Eva"]["delta"] == 2
     assert by_name["Anna"]["delta"] == 0
+
+
+def test_delta_ignores_added_and_removed_activities(app):
+    cd = _make_class([("Anna", [True, False, False, False])])
+    # B entfällt, E kommt neu hinzu (für Anna erledigt): beides darf kein Delta erzeugen.
+    text = ",E-Mail-Adresse,Institution,A,C,D,E\nAnna,x,1,Abgeschlossen,Abgeschlossen,Nicht abgeschlossen,Abgeschlossen\n"
+    import_csv(cd, io.StringIO(text))
+    db.session.commit()
+    stats = build_stats(cd, cd.latest_import)
+    assert stats["ranking"][0]["delta"] == 1  # nur C ist gegenüber A, C, D neu

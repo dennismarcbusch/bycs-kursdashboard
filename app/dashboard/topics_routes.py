@@ -8,7 +8,7 @@ from flask import Blueprint, abort, flash, redirect, render_template, request, s
 
 from app.auth.decorators import login_required
 from app.extensions import db
-from app.models import ClassDashboard, Topic
+from app.models import ActivityTopic, ClassDashboard, Topic
 
 bp = Blueprint("topics", __name__)
 
@@ -43,15 +43,43 @@ def manage(dashboard_id):
             return redirect(url_for("topics.manage", dashboard_id=cd.id))
 
         if action == "assign":
-            topic_by_id = {t.id: t for t in cd.topics}
-            for activity in cd.activities:
+            topic_ids = {t.id for t in cd.topics}
+            latest = cd.latest_import
+            existing = {a.activity_name: a for a in cd.topic_assignments}
+            for activity in latest.activities if latest else []:
                 raw = request.form.get(f"activity-{activity.id}", "")
-                activity.topic_id = topic_by_id[int(raw)].id if raw else None
+                topic_id = int(raw) if raw.isdigit() and int(raw) in topic_ids else None
+                current = existing.get(activity.name)
+                if topic_id is None:
+                    if current is not None:
+                        db.session.delete(current)
+                elif current is None:
+                    db.session.add(
+                        ActivityTopic(
+                            class_dashboard=cd, activity_name=activity.name, topic_id=topic_id
+                        )
+                    )
+                else:
+                    current.topic_id = topic_id
             db.session.commit()
             flash("Zuordnung gespeichert.", "success")
             return redirect(url_for("topics.manage", dashboard_id=cd.id))
 
-    return render_template("dashboard/topics.html", dashboard=cd)
+    latest = cd.latest_import
+    activities = list(latest.activities) if latest else []
+    assignment = {a.activity_name: a.topic_id for a in cd.topic_assignments}
+    present = {a.name for a in activities}
+    topic_counts = {t.id: 0 for t in cd.topics}
+    for name, topic_id in assignment.items():
+        if name in present and topic_id in topic_counts:
+            topic_counts[topic_id] += 1
+    return render_template(
+        "dashboard/topics.html",
+        dashboard=cd,
+        activities=activities,
+        assignment=assignment,
+        topic_counts=topic_counts,
+    )
 
 
 @bp.route("/dashboards/<int:dashboard_id>/topics/<int:topic_id>/delete", methods=["POST"])
@@ -62,8 +90,7 @@ def delete(dashboard_id, topic_id):
     if topic is None or topic.class_dashboard_id != cd.id:
         abort(404)
 
-    for activity in topic.activities:
-        activity.topic_id = None
+    ActivityTopic.query.filter_by(topic_id=topic.id).delete()
     db.session.delete(topic)
     db.session.commit()
     flash(f"Themenbereich '{topic.name}' gelöscht (Aktivitäten sind jetzt 'Sonstige').", "success")

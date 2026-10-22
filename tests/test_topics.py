@@ -3,7 +3,7 @@ from pathlib import Path
 from app.dashboard.stats import build_stats, build_student_detail
 from app.extensions import db
 from app.importer.csv_parser import import_csv
-from app.models import ClassDashboard, Topic
+from app.models import ActivityTopic, ClassDashboard, Topic
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -31,8 +31,9 @@ def test_assigning_topic_moves_activity_out_of_sonstige(app):
     db.session.add(topic)
     db.session.commit()
 
-    checkliste_a = next(a for a in cd.activities if a.name == "Checkliste A")
-    checkliste_a.topic_id = topic.id
+    db.session.add(
+        ActivityTopic(class_dashboard=cd, activity_name="Checkliste A", topic_id=topic.id)
+    )
     db.session.commit()
 
     stats = build_stats(cd, imp)
@@ -53,12 +54,12 @@ def test_deleting_topic_falls_back_to_sonstige(app):
     db.session.add(topic)
     db.session.commit()
 
-    activity = cd.activities[0]
-    activity.topic_id = topic.id
+    db.session.add(
+        ActivityTopic(class_dashboard=cd, activity_name="Aufgabe B", topic_id=topic.id)
+    )
     db.session.commit()
 
-    for a in topic.activities:
-        a.topic_id = None
+    ActivityTopic.query.filter_by(topic_id=topic.id).delete()
     db.session.delete(topic)
     db.session.commit()
 
@@ -85,11 +86,12 @@ def test_build_student_detail_groups_by_topic(app):
     db.session.add(topic)
     db.session.commit()
 
-    checkliste_a = next(a for a in cd.activities if a.name == "Checkliste A")
-    checkliste_a.topic_id = topic.id
+    db.session.add(
+        ActivityTopic(class_dashboard=cd, activity_name="Checkliste A", topic_id=topic.id)
+    )
     db.session.commit()
 
-    erika = next(s for s in cd.students if s.full_name == "Erika Musterfrau")
+    erika = next(s for s in imp.students if s.full_name == "Erika Musterfrau")
     detail = build_student_detail(cd, imp, erika)
 
     assert detail["student_name"] == "Erika Musterfrau"
@@ -97,3 +99,22 @@ def test_build_student_detail_groups_by_topic(app):
     assert netzwerk["total"] == 1
     assert netzwerk["activities"][0]["name"] == "Checkliste A"
     assert netzwerk["activities"][0]["completed"] is True
+
+
+def test_topic_assignment_survives_reimport(app):
+    cd, imp = _make_dashboard_with_import()
+    topic = Topic(class_dashboard=cd, name="Netzwerkgrundlagen")
+    db.session.add(topic)
+    db.session.commit()
+    db.session.add(
+        ActivityTopic(class_dashboard=cd, activity_name="Aufgabe B", topic_id=topic.id)
+    )
+    db.session.commit()
+
+    with open(FIXTURES / "sample_progress.csv", "rb") as f:
+        new_imp = import_csv(cd, f)
+    db.session.commit()
+
+    stats = build_stats(cd, new_imp)
+    netzwerk = next(t for t in stats["per_topic"] if t["name"] == "Netzwerkgrundlagen")
+    assert netzwerk["activity_count"] == 1

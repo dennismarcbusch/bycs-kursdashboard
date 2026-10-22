@@ -4,7 +4,7 @@ from app.auth.decorators import login_required
 from app.dashboard.stats import build_stats, build_student_detail
 from app.extensions import db
 from app.importer.csv_parser import CsvParseError, import_csv
-from app.models import Activity, ClassDashboard, Student, Topic
+from app.models import ClassDashboard, Student
 
 bp = Blueprint("dashboard", __name__)
 
@@ -51,7 +51,7 @@ def new_dashboard():
 @login_required
 def detail(dashboard_id):
     cd = _get_owned_dashboard(dashboard_id)
-    latest_import = cd.imports[0] if cd.imports else None
+    latest_import = cd.latest_import
     stats = build_stats(cd, latest_import) if latest_import else None
     return render_template(
         "dashboard/detail.html", dashboard=cd, latest_import=latest_import, stats=stats
@@ -62,12 +62,12 @@ def detail(dashboard_id):
 @login_required
 def student_detail(dashboard_id, student_id):
     cd = _get_owned_dashboard(dashboard_id)
-    student = db.session.get(Student, student_id)
-    if student is None or student.class_dashboard_id != cd.id:
+    latest_import = cd.latest_import
+    if latest_import is None:
         abort(404)
 
-    latest_import = cd.imports[0] if cd.imports else None
-    if latest_import is None:
+    student = db.session.get(Student, student_id)
+    if student is None or student.import_id != latest_import.id:
         abort(404)
 
     detail_stats = build_student_detail(cd, latest_import, student)

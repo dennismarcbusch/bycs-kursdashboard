@@ -62,10 +62,9 @@ schrittweise hinzu – die Architektur muss dafür erweiterbar sein.
   Aktivitäten neu erkennen/abgleichen (Matching z. B. über Aktivitätsnamen, da Moodle keine
   stabile ID im Export mitliefert – muss anhand eines echten Beispiel-Exports verifiziert
   werden).
-- Mehrfacher Import derselben Klasse muss möglich sein (neuer Stand ersetzt/ergänzt alten Stand),
-  damit die Lehrkraft den Verlauf über die Zeit potenziell nachvollziehen kann (Verlauf ist
-  „nice to have", kein Hard-Requirement für V1, aber das Datenmodell sollte es nicht
-  ausschließen – Importe historisieren statt überschreiben).
+- Mehrfacher Import derselben Klasse ist möglich. Jeder Import ersetzt den Stand komplett (siehe
+  Datenmodell); es bleiben nur der aktuelle und der vorherige Import erhalten. Ein längerer
+  Verlauf ist bewusst nicht vorgesehen (Datensparsamkeit).
 - Exakte CSV-Spaltenstruktur (Spaltennamen, Kodierung, Trennzeichen, Werte für
   "abgeschlossen"/"nicht abgeschlossen") muss anhand eines echten Beispiel-Exports geklärt
   werden, bevor der Parser implementiert wird (**offener Punkt, siehe 7**).
@@ -159,13 +158,17 @@ abschließend, nicht zwingend Teil von V1):
 
 - **User**: (kein lokales Passwort) – LDAP-Login-Name, Anzeige-Name, zuletzt eingeloggt.
 - **ClassDashboard**: gehört zu genau einem User; Name/Bezeichnung; Export-URL (für V2);
-  Kurs-Referenz/Gruppe (für V4); Soll-Marke (V1, geplant).
-- **Import**: gehört zu einer ClassDashboard; Zeitstempel; Quelle (Upload/Abruf); Status.
-- **Activity**: Name/Bezeichnung; gehört (lose, über Namen-Matching) zu einer ClassDashboard;
-  kann über mehrere Imports hinweg wiederkehren.
-- **Student**: Name; gehört zu einer ClassDashboard.
-- **CompletionRecord**: Import × Student × Activity → Status (abgeschlossen / nicht
-  abgeschlossen / evtl. weitere Zustände wie in Moodle üblich, z. B. "in Bearbeitung").
+  Kurs-Referenz/Gruppe (für V4); Soll-Marke (V1, geplant). Dauerhaft gespeichert werden nur
+  die Klasse, ihre **Themenbereiche** und die **Zuordnung Aktivitätsname → Themenbereich**.
+- **Import**: gehört zu einer ClassDashboard; Zeitstempel; Quelle (Upload/Abruf). Ein Import
+  ist ein in sich geschlossener **Schnappschuss**: Schüler:innen, Aktivitäten (in CSV-
+  Reihenfolge) und Abschlüsse gehören zum Import und werden bei jedem Import komplett neu
+  aufgebaut. Aufbewahrt werden nur die **letzten zwei Importe** (aktueller + vorheriger für
+  „seit dem letzten Import"); ältere werden samt Schülerdaten gelöscht. Dadurch gibt es keine
+  Altlasten entfallener Aktivitäten, und es liegen möglichst wenige Schülerdaten vor.
+- **Activity**: Name und Position innerhalb eines Imports.
+- **Student**: Name innerhalb eines Imports (gleiche Namen werden mit „(2)" unterschieden).
+- **CompletionRecord**: Import × Student × Activity → abgeschlossen ja/nein, Abschlussdatum.
 
 ## 6. Nicht im Scope (V1)
 
