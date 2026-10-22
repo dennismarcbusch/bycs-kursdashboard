@@ -4,7 +4,17 @@
     {
       "name": "flask-dev",
       "runtimeExecutable": ".venv/bin/python",
-      "runtimeArgs": ["wsgi.py"],
+      "runtimeArgs": [
+        "wsgi.py"
+      ],
+      "port": 5000
+    },
+    {
+      "name": "flask-dev-win",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "wsgi.py"
+      ],
       "port": 5000
     }
   ]

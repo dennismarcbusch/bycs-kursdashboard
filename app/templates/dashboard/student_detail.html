@@ -2,15 +2,72 @@
 {% block title %}{{ student.full_name }} - {{ dashboard.name }}{% endblock %}
 {% block content %}
   <div class="page-header">
-    <h1>{{ student.full_name }}</h1>
-    <a href="{{ url_for('dashboard.detail', dashboard_id=dashboard.id) }}">&larr; Zurück zu {{ dashboard.name }}</a>
+    <div>
+      <h1>{{ student.full_name }}</h1>
+      <a href="{{ url_for('dashboard.detail', dashboard_id=dashboard.id) }}">&larr; Zurück zu {{ dashboard.name }}</a>
+    </div>
+    <div class="student-picker">
+      <label for="student-select">Schüler:in wechseln</label>
+      <select id="student-select" onchange="if (this.value) location.href = this.value">
+        {% for s in detail.students %}
+          <option value="{{ url_for('dashboard.student_detail', dashboard_id=dashboard.id, student_id=s.id) }}"
+                  {{ 'selected' if s.id == student.id else '' }}>{{ s.name }} ({{ s.percent }}%)</option>
+        {% endfor %}
+      </select>
+    </div>
   </div>
 
-  <div class="card stat-card" style="margin-bottom:20px">
-    <div class="stat-value">{{ detail.percent }}%</div>
-    <div class="stat-label">Aktivitäten abgeschlossen</div>
-    <div class="stat-sub">{{ detail.completed }} / {{ detail.total }}</div>
+  <div class="grid grid-stats">
+    <div class="card stat-card">
+      <div class="stat-value">{{ detail.percent }}%</div>
+      <div class="stat-label">Aktivitäten abgeschlossen</div>
+      <div class="stat-sub">{{ detail.completed }} / {{ detail.total }}</div>
+    </div>
+    <div class="card stat-card group-card group-{{ detail.class.group }}">
+      <div class="stat-value">{{ detail.class.group_label }}</div>
+      <div class="stat-label">Rang {{ detail.class.rank }} von {{ detail.class.student_count }}</div>
+      <div class="stat-sub">
+        Median {{ detail.class.median }}%
+        &middot; {% if detail.class.gap > 0 %}{{ detail.class.gap }} Aktivität{{ 'en' if detail.class.gap != 1 }} voraus
+        {% elif detail.class.gap < 0 %}{{ -detail.class.gap }} Aktivität{{ 'en' if detail.class.gap != -1 }} hinter dem Median
+        {% else %}auf Höhe des Medians{% endif %}
+      </div>
+    </div>
+    <div class="card stat-card">
+      <div class="stat-value">{{ detail.open }}</div>
+      <div class="stat-label">Offene Aktivitäten</div>
+      <div class="stat-sub">
+        {% if detail.gap_count %}davon {{ detail.gap_count }} Lücke{{ 'n' if detail.gap_count != 1 }}{% else %}keine Lücken{% endif %}
+        {% if detail.delta is not none %}&middot; seit {{ detail.previous_import_at.strftime('%d.%m.') }}: {{ '+' if detail.delta > 0 else '' }}{{ detail.delta }}{% endif %}
+      </div>
+    </div>
   </div>
+
+  {% if detail.open_list %}
+    <div class="card open-summary">
+      <h2>Offen ({{ detail.open_list | length }})</h2>
+      <p class="muted">
+        <span class="gap-tag">Lücke</span> = offen, obwohl danach im selben Themenbereich etwas erledigt wurde.
+      </p>
+      <ul class="checklist">
+        {% for a in detail.open_list %}
+          <li class="checklist-open">
+            <span class="checklist-icon">&#10007;</span>
+            {{ a.name }}
+            {% if a.gap %}<span class="gap-tag">Lücke</span>{% endif %}
+            <span class="muted checklist-date">{{ a.topic }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% else %}
+    <div class="card"><p>Alle Aktivitäten abgeschlossen.</p></div>
+  {% endif %}
+
+  <h2 style="margin-top:24px">Alle Aktivitäten nach Themenbereich</h2>
+  <label class="inline-check">
+    <input type="checkbox" id="only-open"> Nur offene anzeigen
+  </label>
 
   {% for topic in detail.topics %}
     <div class="card topic-block">
@@ -26,6 +83,7 @@
           <li class="{{ 'checklist-done' if activity.completed else 'checklist-open' }}">
             <span class="checklist-icon">{{ "✓" if activity.completed else "✗" }}</span>
             {{ activity.name }}
+            {% if activity.gap %}<span class="gap-tag">Lücke</span>{% endif %}
             {% if activity.completed_at %}
               <span class="muted checklist-date">{{ activity.completed_at.strftime('%d.%m.%Y') }}</span>
             {% endif %}
@@ -34,4 +92,18 @@
       </ul>
     </div>
   {% endfor %}
+
+  <script>
+    (function () {
+      const box = document.getElementById("only-open");
+      box.addEventListener("change", () => {
+        document.querySelectorAll(".topic-block .checklist-done").forEach((li) => {
+          li.hidden = box.checked;
+        });
+        document.querySelectorAll(".topic-block").forEach((block) => {
+          block.hidden = box.checked && !block.querySelector(".checklist-open");
+        });
+      });
+    })();
+  </script>
 {% endblock %}

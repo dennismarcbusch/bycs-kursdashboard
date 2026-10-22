@@ -25,13 +25,89 @@
 
     <div class="grid grid-stats">
       <div class="card stat-card">
-        <div class="stat-value">{{ stats.overall_percent }}%</div>
-        <div class="stat-label">Aktivitäten insgesamt abgeschlossen</div>
-        <div class="stat-sub">{{ stats.total_completed }} / {{ stats.total_possible }}</div>
+        <div class="stat-value">{{ stats.median }}%</div>
+        <div class="stat-label">Klassenmedian</div>
+        <div class="stat-sub">Gesamt: {{ stats.overall_percent }}% ({{ stats.total_completed }} / {{ stats.total_possible }})</div>
       </div>
+      {% for key in ['vorn', 'feld', 'hinterher'] %}
+        <div class="card stat-card group-card group-{{ key }}">
+          <div class="stat-value">{{ stats.group_counts[key] }}</div>
+          <div class="stat-label">{{ stats.group_labels[key] }}</div>
+        </div>
+      {% endfor %}
+    </div>
+    {% if stats.student_count < 4 %}
+      <p class="muted">Bei weniger als 4 Schüler:innen wird nicht in Vorn/Hinterher eingestuft.</p>
+    {% else %}
+      <p class="muted">
+        Vorn = oberes Viertel der Klasse (ab {{ stats.q3 }}%), Hinterher = unteres Viertel
+        (bis {{ stats.q1 }}%), jeweils im Vergleich zum Median.
+      </p>
+    {% endif %}
+
+    <h2>Rangliste</h2>
+    <div class="filter-bar" role="group" aria-label="Gruppe filtern">
+      <button type="button" class="filter-chip active" data-filter="all">Alle</button>
+      {% for key in ['vorn', 'feld', 'hinterher'] %}
+        <button type="button" class="filter-chip" data-filter="{{ key }}">{{ stats.group_labels[key] }}</button>
+      {% endfor %}
+    </div>
+    <div class="card rank-card">
+      <div class="rank-list">
+        {% for s in stats.ranking %}
+          <a class="rank-row" data-group="{{ s.group }}"
+             href="{{ url_for('dashboard.student_detail', dashboard_id=dashboard.id, student_id=s.id) }}">
+            <span class="rank-name">{{ s.name }}</span>
+            <span class="rank-bar" title="{{ s.completed }} von {{ s.total }} abgeschlossen">
+              <span class="rank-fill group-fill-{{ s.group }}" style="width: {{ s.percent }}%"></span>
+              <span class="rank-median" style="left: {{ stats.median }}%" title="Klassenmedian {{ stats.median }}%"></span>
+            </span>
+            <span class="rank-percent">{{ s.percent }}%</span>
+            <span class="rank-open" title="Offene Aktivitäten">{{ s.total - s.completed }} offen</span>
+            <span class="rank-delta muted">
+              {% if s.delta is not none %}{{ '+' if s.delta > 0 else '' }}{{ s.delta }}{% endif %}
+            </span>
+            <span class="group-chip group-{{ s.group }}">{{ s.group_label }}</span>
+          </a>
+        {% endfor %}
+      </div>
+      <p class="muted rank-legend">
+        Senkrechte Linie = Klassenmedian.
+        {% if stats.previous_import_at %}Die Zahl rechts zeigt die neu erledigten Aktivitäten seit dem Import vom {{ stats.previous_import_at.strftime('%d.%m.%Y') }}.{% endif %}
+      </p>
     </div>
 
-    <h2>Fortschritt nach Themenbereich</h2>
+    <h2 style="margin-top:24px">Offene Aufgaben</h2>
+    {% if stats.open_activities %}
+      <p class="muted">Sortiert danach, wie viele Schüler:innen die Aktivität noch nicht erledigt haben. Zum Aufklappen anklicken.</p>
+      <div class="card">
+        <ul class="open-list">
+          {% for a in stats.open_activities[:15] %}
+            <li>
+              <details>
+                <summary>
+                  <span class="open-count">{{ a.open_count }}</span>
+                  <span class="open-name">{{ a.name }}</span>
+                  <span class="muted open-topic">{{ a.topic }}</span>
+                </summary>
+                <div class="open-students">
+                  {% for st in a.students %}
+                    <a href="{{ url_for('dashboard.student_detail', dashboard_id=dashboard.id, student_id=st.id) }}">{{ st.name }}</a>{% if not loop.last %}, {% endif %}
+                  {% endfor %}
+                </div>
+              </details>
+            </li>
+          {% endfor %}
+        </ul>
+        {% if stats.open_activities | length > 15 %}
+          <p class="muted">Weitere {{ stats.open_activities | length - 15 }} Aktivitäten mit offenen Abschlüssen stehen in der Heatmap unten.</p>
+        {% endif %}
+      </div>
+    {% else %}
+      <p class="muted">Alle Aktivitäten sind bei allen Schüler:innen abgeschlossen.</p>
+    {% endif %}
+
+    <h2 style="margin-top:24px">Fortschritt nach Themenbereich</h2>
     {% if stats.per_topic | length == 1 and stats.per_topic[0].name == "Sonstige" %}
       <p class="muted">
         Noch keine Themenbereiche angelegt. <a href="{{ url_for('topics.manage', dashboard_id=dashboard.id) }}">Jetzt einrichten</a>,
@@ -52,8 +128,8 @@
 
     <h2 style="margin-top:24px">Übersicht: wer hat was erledigt?</h2>
     <p class="muted">
-      Grün = Aktivität abgeschlossen. Die Zahl links zeigt den Gesamtfortschritt je
-      Schüler:in (heller = weniger, dunkler = mehr). Zeile anklicken für die Detailansicht.
+      Grün = abgeschlossen, grau = offen. Zeilen sind nach Fortschritt sortiert (weitester oben),
+      der Gruppenfilter oben gilt auch hier. Zeile anklicken für die Detailansicht.
     </p>
     <div class="card heatmap-wrap">
       <table class="heatmap">
@@ -74,7 +150,7 @@
         </thead>
         <tbody>
           {% for row in stats.heatmap.rows %}
-            <tr class="heatmap-row" onclick="location.href='{{ url_for('dashboard.student_detail', dashboard_id=dashboard.id, student_id=row.student_id) }}'">
+            <tr class="heatmap-row" data-group="{{ row.group }}" onclick="location.href='{{ url_for('dashboard.student_detail', dashboard_id=dashboard.id, student_id=row.student_id) }}'">
               <td class="heatmap-name">
                 <span class="heatmap-name-text">{{ row.student_name }}</span>
                 <span class="heat-badge" style="background:{{ row.heat_bg }};color:{{ row.heat_text }}">{{ row.percent }}%</span>
@@ -89,62 +165,17 @@
       </table>
     </div>
 
-    <div class="card" style="margin-top:20px">
-      <h2>Details pro Schüler:in</h2>
-      <p class="muted">Auf eine Spaltenüberschrift klicken, um danach zu sortieren.</p>
-      <table class="table sortable" id="student-table">
-        <thead>
-          <tr>
-            <th data-sort="name" data-type="string">Name</th>
-            <th data-sort="completed" data-type="number">Abgeschlossen</th>
-            <th data-sort="total" data-type="number">Von</th>
-            <th data-sort="percent" data-type="number">%</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for s in stats.per_student %}
-            <tr data-name="{{ s.name }}" data-completed="{{ s.completed }}" data-total="{{ s.total }}" data-percent="{{ s.percent }}">
-              <td><a href="{{ url_for('dashboard.student_detail', dashboard_id=dashboard.id, student_id=s.id) }}">{{ s.name }}</a></td>
-              <td>{{ s.completed }}</td>
-              <td>{{ s.total }}</td>
-              <td>{{ s.percent }}%</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-
     <script>
       (function () {
-        const table = document.getElementById("student-table");
-        if (!table) return;
-        const tbody = table.querySelector("tbody");
-        let sortKey = null;
-        let sortAsc = true;
-
-        table.querySelectorAll("th[data-sort]").forEach((th) => {
-          th.addEventListener("click", () => {
-            const key = th.dataset.sort;
-            const type = th.dataset.type;
-            sortAsc = sortKey === key ? !sortAsc : true;
-            sortKey = key;
-
-            const rows = Array.from(tbody.querySelectorAll("tr"));
-            rows.sort((a, b) => {
-              let va = a.dataset[key];
-              let vb = b.dataset[key];
-              if (type === "number") {
-                va = parseFloat(va);
-                vb = parseFloat(vb);
-              }
-              if (va < vb) return sortAsc ? -1 : 1;
-              if (va > vb) return sortAsc ? 1 : -1;
-              return 0;
+        const chips = document.querySelectorAll(".filter-chip");
+        const rows = document.querySelectorAll("[data-group]");
+        chips.forEach((chip) => {
+          chip.addEventListener("click", () => {
+            const wanted = chip.dataset.filter;
+            chips.forEach((c) => c.classList.toggle("active", c === chip));
+            rows.forEach((row) => {
+              row.hidden = wanted !== "all" && row.dataset.group !== wanted;
             });
-            rows.forEach((row) => tbody.appendChild(row));
-
-            table.querySelectorAll("th[data-sort]").forEach((el) => el.classList.remove("sort-asc", "sort-desc"));
-            th.classList.add(sortAsc ? "sort-asc" : "sort-desc");
           });
         });
       })();

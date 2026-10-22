@@ -21,6 +21,14 @@ Details zum Funktionsumfang, Datenmodell und den offenen Punkten: [REQUIREMENTS.
   Klassenüberblick sowie eine Detailtabelle.
 - Klick auf eine/n Schüler:in öffnet eine Detailseite mit einer nach Themenbereich
   gruppierten Checkliste (inkl. Abschlussdatum, falls im Export vorhanden).
+- Klassenansicht mit Rangliste (Fortschritt, Klassenmedian, Einstufung Vorn / Im Feld /
+  Hinterher nach Quartilen, Veränderung seit dem letzten Import), Gruppenfilter und einer
+  Liste der offenen Aufgaben je Aktivität.
+- Schülerdetail mit Schüler:innen-Auswahl, Liste der offenen Aktivitäten (Lücken zuerst,
+  d. h. offen, obwohl danach im selben Themenbereich etwas erledigt wurde), Vergleich zum
+  Median und Filter "nur offene".
+
+Eine anonymisierte Test-CSV liegt in `tests/fixtures/demo_klasse.csv` (erfundene Namen).
 
 Automatischer CSV-Abruf per Login (V2) und Gruppen-Auswahl statt freier Klassenanlage (V3)
 sind in den Requirements skizziert, aber noch nicht implementiert.
