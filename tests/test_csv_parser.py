@@ -13,7 +13,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def _make_dashboard():
-    cd = ClassDashboard(owner_username="testlehrer", name="Testklasse")
+    cd = ClassDashboard(name="Testklasse")
     db.session.add(cd)
     db.session.commit()
     return cd

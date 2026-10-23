@@ -23,7 +23,7 @@ def test_normalize_tag():
 
 
 def _class_with(header_activities):
-    cd = ClassDashboard(owner_username="t", name="K")
+    cd = ClassDashboard(name="K")
     db.session.add(cd)
     cols = ",".join(header_activities)
     text = f",E-Mail-Adresse,{cols}\nAnna,x," + ",".join(

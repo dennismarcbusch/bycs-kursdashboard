@@ -10,6 +10,7 @@ import statistics
 
 from app.dashboard.colorscale import sequential_color
 from app.models import ClassDashboard, Import, Student
+from app.tags import split_tag
 
 SONSTIGE = "Sonstige"
 
@@ -24,6 +25,8 @@ GROUP_LABELS = {
 # Ab dieser Klassengröße werden Quartile zur Einstufung genutzt; kleinere Klassen bleiben
 # komplett "im Feld", weil die Streuung nichts aussagt.
 MIN_STUDENTS_FOR_GROUPS = 4
+# Mit gesetztem Soll-Stand: ab diesem Anteil des Solls gilt jemand als "im Feld".
+TARGET_OK_RATIO = 0.7
 
 
 def _percent(completed: int, total: int) -> float:
@@ -76,20 +79,69 @@ def _classify(percent: float, median: float, q1: float, q3: float, n: int) -> st
     return GROUP_MID
 
 
-def _class_overview(import_: Import) -> dict:
-    """Fortschritt je Schüler:in plus Klassenkennzahlen (Median, Quartile, Einstufung)."""
+def _target_info(class_dashboard: ClassDashboard, import_: Import) -> dict | None:
+    """Manuell gesetzter Soll-Stand: alle Aktivitäten bis einschließlich der Marke sind "fällig".
+
+    None, wenn keine Marke gesetzt ist. `missing` ist True, wenn die Aktivität im aktuellen
+    Import nicht mehr vorkommt (dann wird die Marke ignoriert)."""
+    name = class_dashboard.target_activity_name
+    if not name:
+        return None
+    activities = list(import_.activities)
+    target = next((a for a in activities if a.name == name), None)
+    if target is None:
+        return {"missing": True, "label": split_tag(name)[0], "due_ids": set(), "total": 0}
+    due = [a for a in activities if a.position <= target.position]
+    return {
+        "missing": False,
+        "label": target.display_name,
+        "due_ids": {a.id for a in due},
+        "total": len(due),
+        "percent_of_all": _percent(len(due), len(activities)),
+    }
+
+
+def _active_due_ids(target: dict | None) -> set[int]:
+    return target["due_ids"] if target and not target["missing"] else set()
+
+
+def _classify_by_target(soll_completed: int, soll_total: int) -> str:
+    if soll_total == 0:
+        return GROUP_MID
+    if soll_completed >= soll_total:
+        return GROUP_AHEAD
+    if soll_completed / soll_total >= TARGET_OK_RATIO:
+        return GROUP_MID
+    return GROUP_BEHIND
+
+
+def _class_overview(import_: Import, due_ids: set[int] | None = None) -> dict:
+    """Fortschritt je Schüler:in plus Klassenkennzahlen (Median, Quartile, Einstufung).
+
+    Mit `due_ids` (Aktivitäten bis zum Soll-Stand) richtet sich die Einstufung nach der
+    Erfüllung des Solls, sonst nach den Quartilen der Klasse."""
+    due_ids = due_ids or set()
     per_student: dict[int, dict] = {}
     for rec in import_.records:
         ps = per_student.setdefault(
             rec.student_id,
-            {"id": rec.student_id, "name": rec.student.full_name, "completed": 0, "total": 0},
+            {
+                "id": rec.student_id,
+                "name": rec.student.full_name,
+                "completed": 0,
+                "total": 0,
+                "due_completed": 0,
+            },
         )
         ps["total"] += 1
         if rec.completed:
             ps["completed"] += 1
+            if rec.activity_id in due_ids:
+                ps["due_completed"] += 1
 
     for ps in per_student.values():
         ps["percent"] = _percent(ps["completed"], ps["total"])
+        ps["due"] = len(due_ids) - ps["due_completed"] if due_ids else None
 
     percents = [ps["percent"] for ps in per_student.values()]
     completed_counts = [ps["completed"] for ps in per_student.values()]
@@ -105,7 +157,10 @@ def _class_overview(import_: Import) -> dict:
     ranked = sorted(percents, reverse=True)
     for ps in per_student.values():
         ps["rank"] = ranked.index(ps["percent"]) + 1
-        ps["group"] = _classify(ps["percent"], median, q1, q3, n)
+        if due_ids:
+            ps["group"] = _classify_by_target(ps["due_completed"], len(due_ids))
+        else:
+            ps["group"] = _classify(ps["percent"], median, q1, q3, n)
         ps["group_label"] = GROUP_LABELS[ps["group"]]
         ps["gap"] = round(ps["completed"] - median_completed)
         heat_bg, heat_text = sequential_color(ps["percent"])
@@ -157,8 +212,27 @@ def _deltas(import_: Import, previous: Import | None) -> dict[str, int]:
     return {name: now.get(name, 0) - count for name, count in before.items()}
 
 
+def _target_options(topic_groups, import_: Import) -> tuple[list[dict], list[dict]]:
+    """Auswahl für den Soll-Stand: erst "Ende von <Thema>", dann jede einzelne Aktivität."""
+    options = []
+    for group in topic_groups:
+        last = max(group["activities"], key=lambda a: a.position)
+        options.append({"value": last.name, "label": f"Ende von: {group['name']}"})
+    topic_of = {a.id: g["name"] for g in topic_groups for a in g["activities"]}
+    singles = [
+        {
+            "value": a.name,
+            "label": f"{a.position + 1}. {a.display_name} ({topic_of.get(a.id, SONSTIGE)})",
+        }
+        for a in import_.activities
+    ]
+    return options, singles
+
+
 def build_stats(class_dashboard: ClassDashboard, import_: Import) -> dict:
-    overview = _class_overview(import_)
+    target = _target_info(class_dashboard, import_)
+    due_ids = _active_due_ids(target)
+    overview = _class_overview(import_, due_ids)
     per_student = overview["per_student"]
 
     per_activity_totals: dict[int, dict] = {}
@@ -226,6 +300,7 @@ def build_stats(class_dashboard: ClassDashboard, import_: Import) -> dict:
                     {
                         "activity_id": activity.id,
                         "completed": done,
+                        "due": (not done) and activity.id in due_ids,
                         "completed_at": rec.completed_at if rec else None,
                     }
                 )
@@ -236,6 +311,7 @@ def build_stats(class_dashboard: ClassDashboard, import_: Import) -> dict:
                 "percent": student["percent"],
                 "group": student["group"],
                 "open_count": open_count,
+                "due": student["due"],
                 "heat_bg": student["heat_bg"],
                 "heat_text": student["heat_text"],
                 "cells": cells,
@@ -254,12 +330,14 @@ def build_stats(class_dashboard: ClassDashboard, import_: Import) -> dict:
                         "name": activity.display_name,
                         "topic": group["name"],
                         "open_count": len(students_open),
+                        "due": activity.id in due_ids,
                         "students": [
                             {"id": sid, "name": name} for sid, name in students_open
                         ],
                     }
                 )
-    open_activities.sort(key=lambda a: -a["open_count"])
+    open_activities.sort(key=lambda a: (not a["due"], -a["open_count"]))
+    target_choices, target_singles = _target_options(topic_groups, import_)
 
     return {
         "overall_percent": _percent(total_completed, total_possible),
@@ -267,6 +345,16 @@ def build_stats(class_dashboard: ClassDashboard, import_: Import) -> dict:
         "total_possible": total_possible,
         "student_count": overview["student_count"],
         "activity_count": len(per_activity_totals),
+        "target": {
+            "set": target is not None,
+            "missing": bool(target and target["missing"]),
+            "label": target["label"] if target else None,
+            "value": class_dashboard.target_activity_name,
+            "due_total": target["total"] if target else 0,
+            "percent_of_all": target.get("percent_of_all") if target else None,
+            "choices": target_choices,
+            "singles": target_singles,
+        },
         "median": overview["median"],
         "q1": overview["q1"],
         "q3": overview["q3"],
@@ -292,7 +380,9 @@ def build_stats(class_dashboard: ClassDashboard, import_: Import) -> dict:
 
 
 def build_student_detail(class_dashboard: ClassDashboard, import_: Import, student: Student) -> dict:
-    overview = _class_overview(import_)
+    target = _target_info(class_dashboard, import_)
+    due_ids = _active_due_ids(target)
+    overview = _class_overview(import_, due_ids)
     me = overview["per_student"].get(student.id)
 
     records_by_activity = {
@@ -315,6 +405,7 @@ def build_student_detail(class_dashboard: ClassDashboard, import_: Import, stude
                     "completed": is_completed,
                     "completed_at": rec.completed_at if rec else None,
                     "gap": False,
+                    "due": (not is_completed) and activity.id in due_ids,
                 }
             )
             completed += int(is_completed)
@@ -330,7 +421,12 @@ def build_student_detail(class_dashboard: ClassDashboard, import_: Import, stude
         for activity in activities:
             if not activity["completed"]:
                 open_list.append(
-                    {"name": activity["name"], "topic": group["name"], "gap": activity["gap"]}
+                    {
+                        "name": activity["name"],
+                        "topic": group["name"],
+                        "gap": activity["gap"],
+                        "due": activity["due"],
+                    }
                 )
 
         total = len(activities)
@@ -347,8 +443,8 @@ def build_student_detail(class_dashboard: ClassDashboard, import_: Import, stude
             }
         )
 
-    # Lücken zuerst, dann nach Reihenfolge im Kurs.
-    open_list.sort(key=lambda a: not a["gap"])
+    # Fällige zuerst, dann Lücken, dann nach Reihenfolge im Kurs.
+    open_list.sort(key=lambda a: (not a["due"], not a["gap"]))
 
     previous = _previous_import(class_dashboard, import_)
     delta = _deltas(import_, previous).get(student.full_name)
@@ -362,6 +458,12 @@ def build_student_detail(class_dashboard: ClassDashboard, import_: Import, stude
         "topics": topics,
         "open_list": open_list,
         "gap_count": sum(1 for a in open_list if a["gap"]),
+        "due_count": sum(1 for a in open_list if a["due"]),
+        "target": {
+            "set": target is not None,
+            "missing": bool(target and target["missing"]),
+            "label": target["label"] if target else None,
+        },
         "delta": delta,
         "previous_import_at": previous.imported_at if previous else None,
         "class": {

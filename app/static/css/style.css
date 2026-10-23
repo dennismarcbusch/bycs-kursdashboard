@@ -399,3 +399,41 @@ code { font-size: 0.85em; padding: 1px 5px; border-radius: 4px; background: var(
 .inline-form { flex-direction: row; align-items: center; gap: 8px; margin-left: auto; }
 .inline-form input[type="text"] { padding: 5px 8px; font-size: 0.9rem; }
 .inline-form button { margin: 0; }
+
+/* Administration */
+.subnav { display: flex; gap: 6px; margin: -8px 0 18px; border-bottom: 1px solid var(--color-border); }
+.subnav a { padding: 8px 14px; color: var(--color-muted); text-decoration: none; border-bottom: 2px solid transparent; }
+.subnav a.active { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: 600; }
+.check-list { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 8px; }
+tr.row-inactive td { color: var(--color-muted); }
+.topbar .user { color: var(--color-muted); text-decoration: none; }
+
+/* Soll-Stand */
+:root { --color-cell-due: #fdba74; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --color-cell-due: #9a3412; }
+}
+td.cell-due { background: var(--color-cell-due); }
+.target-card { margin-bottom: 16px; padding: 14px 16px; }
+.target-form { gap: 4px; }
+.target-form label { margin-top: 0; }
+.target-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.target-row select { flex: 1 1 320px; padding: 8px 10px; }
+.target-row button { margin: 0; }
+.rank-target {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 0;
+  border-left: 2px dashed var(--color-group-hinterher);
+}
+.rank-due { color: var(--color-group-hinterher); font-weight: 600; }
+.due-tag {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--color-group-hinterher);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+}

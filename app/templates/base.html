@@ -8,12 +8,13 @@
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="{{ url_for('dashboard.list_dashboards') if session.get('username') else url_for('auth.login') }}">
+    <a class="brand" href="{{ url_for('dashboard.list_dashboards') if current_user else url_for('auth.login') }}">
       BYCS-Kursdashboard
     </a>
-    {% if session.get('username') %}
+    {% if current_user %}
       <nav>
-        <span class="user">{{ session.get('display_name', session['username']) }}</span>
+        {% if current_user.is_admin %}<a href="{{ url_for('admin.users') }}">Administration</a>{% endif %}
+        <a href="{{ url_for('auth.change_password') }}" class="user" title="Passwort ändern">{{ current_user.display_name }}</a>
         <a href="{{ url_for('auth.logout') }}">Abmelden</a>
       </nav>
     {% endif %}

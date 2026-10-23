@@ -1,6 +1,12 @@
-from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 
-from app.auth.decorators import login_required
+from app.auth.decorators import (
+    accessible_dashboards,
+    admin_required,
+    current_user,
+    get_accessible_dashboard,
+    login_required,
+)
 from app.dashboard.stats import build_stats, build_student_detail
 from app.extensions import db
 from app.importer.csv_parser import CsvParseError, import_csv
@@ -9,48 +15,18 @@ from app.models import ClassDashboard, Student
 bp = Blueprint("dashboard", __name__)
 
 
-def _get_owned_dashboard(dashboard_id: int) -> ClassDashboard:
-    cd = db.session.get(ClassDashboard, dashboard_id)
-    if cd is None:
-        abort(404)
-    if cd.owner_username != session["username"]:
-        abort(403)
-    return cd
-
-
 @bp.route("/")
 @login_required
 def list_dashboards():
-    dashboards = (
-        ClassDashboard.query.filter_by(owner_username=session["username"])
-        .order_by(ClassDashboard.name)
-        .all()
+    return render_template(
+        "dashboard/list.html", dashboards=accessible_dashboards(current_user())
     )
-    return render_template("dashboard/list.html", dashboards=dashboards)
-
-
-@bp.route("/dashboards/new", methods=["GET", "POST"])
-@login_required
-def new_dashboard():
-    if request.method == "POST":
-        name = request.form.get("name", "").strip()
-        if not name:
-            flash("Bitte einen Namen für die Klasse angeben.", "error")
-            return render_template("dashboard/new.html")
-
-        cd = ClassDashboard(owner_username=session["username"], name=name)
-        db.session.add(cd)
-        db.session.commit()
-        flash(f"Klasse '{cd.name}' angelegt.", "success")
-        return redirect(url_for("dashboard.upload", dashboard_id=cd.id))
-
-    return render_template("dashboard/new.html")
 
 
 @bp.route("/dashboards/<int:dashboard_id>")
 @login_required
 def detail(dashboard_id):
-    cd = _get_owned_dashboard(dashboard_id)
+    cd = get_accessible_dashboard(dashboard_id)
     latest_import = cd.latest_import
     stats = build_stats(cd, latest_import) if latest_import else None
     return render_template(
@@ -61,7 +37,7 @@ def detail(dashboard_id):
 @bp.route("/dashboards/<int:dashboard_id>/students/<int:student_id>")
 @login_required
 def student_detail(dashboard_id, student_id):
-    cd = _get_owned_dashboard(dashboard_id)
+    cd = get_accessible_dashboard(dashboard_id)
     latest_import = cd.latest_import
     if latest_import is None:
         abort(404)
@@ -76,10 +52,29 @@ def student_detail(dashboard_id, student_id):
     )
 
 
+@bp.route("/dashboards/<int:dashboard_id>/target", methods=["POST"])
+@login_required
+def set_target(dashboard_id):
+    """Setzt oder löscht den manuell gesetzten Soll-Stand (Aktivität, bis zu der die Klasse sein sollte)."""
+    cd = get_accessible_dashboard(dashboard_id)
+    value = request.form.get("target", "").strip()
+    latest = cd.latest_import
+    if not value:
+        cd.target_activity_name = None
+        flash("Soll-Stand entfernt.", "success")
+    elif latest is not None and any(a.name == value for a in latest.activities):
+        cd.target_activity_name = value
+        flash("Soll-Stand gespeichert.", "success")
+    else:
+        flash("Diese Aktivität gibt es im aktuellen Import nicht.", "error")
+    db.session.commit()
+    return redirect(url_for("dashboard.detail", dashboard_id=cd.id))
+
+
 @bp.route("/dashboards/<int:dashboard_id>/upload", methods=["GET", "POST"])
 @login_required
 def upload(dashboard_id):
-    cd = _get_owned_dashboard(dashboard_id)
+    cd = get_accessible_dashboard(dashboard_id)
 
     if request.method == "POST":
         file = request.files.get("csv_file")
@@ -102,10 +97,10 @@ def upload(dashboard_id):
 
 
 @bp.route("/dashboards/<int:dashboard_id>/delete", methods=["POST"])
-@login_required
+@admin_required
 def delete(dashboard_id):
-    cd = _get_owned_dashboard(dashboard_id)
+    cd = get_accessible_dashboard(dashboard_id)
     db.session.delete(cd)
     db.session.commit()
-    flash(f"Klasse '{cd.name}' gelöscht.", "success")
-    return redirect(url_for("dashboard.list_dashboards"))
+    flash(f"Klassengruppe '{cd.name}' gelöscht.", "success")
+    return redirect(url_for("admin.groups"))

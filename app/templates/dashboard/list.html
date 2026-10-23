@@ -1,9 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Meine Klassen - BYCS-Kursdashboard{% endblock %}
+{% block title %}Klassengruppen - BYCS-Kursdashboard{% endblock %}
 {% block content %}
   <div class="page-header">
-    <h1>Meine Klassen</h1>
-    <a class="button" href="{{ url_for('dashboard.new_dashboard') }}">+ Neue Klasse</a>
+    <h1>{{ "Alle Klassengruppen" if current_user.is_admin else "Meine Klassengruppen" }}</h1>
+    {% if current_user.is_admin %}
+      <a class="button" href="{{ url_for('admin.groups') }}">Klassengruppen verwalten</a>
+    {% endif %}
   </div>
 
   {% if dashboards %}
@@ -20,6 +22,9 @@
       {% endfor %}
     </div>
   {% else %}
-    <p class="muted">Noch keine Klasse angelegt.</p>
+    <p class="muted">
+      {% if current_user.is_admin %}Noch keine Klassengruppe angelegt.
+      {% else %}Dir ist noch keine Klassengruppe zugeordnet. Bitte den Admin ansprechen.{% endif %}
+    </p>
   {% endif %}
 {% endblock %}

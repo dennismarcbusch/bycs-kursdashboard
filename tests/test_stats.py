@@ -18,7 +18,7 @@ def _csv(rows):
 
 
 def _make_class(rows):
-    cd = ClassDashboard(owner_username="t", name="Testklasse")
+    cd = ClassDashboard(name="Testklasse")
     db.session.add(cd)
     import_csv(cd, _csv(rows))
     db.session.commit()

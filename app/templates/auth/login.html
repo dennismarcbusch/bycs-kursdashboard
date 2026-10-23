@@ -3,8 +3,9 @@
 {% block content %}
   <div class="card card-narrow">
     <h1>Anmelden</h1>
-    <p class="muted">Login mit deinem UCS-Schulaccount (Gruppe "Lehrer").</p>
+    <p class="muted">Melde dich mit deinem Benutzerkonto an. Konten legt der Admin an.</p>
     <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label for="username">Benutzername</label>
       <input type="text" id="username" name="username" autocomplete="username" required autofocus>
 
@@ -15,7 +16,7 @@
     </form>
     {% if dev_login_enabled %}
       <p class="muted" style="margin-top:16px">
-        <a href="{{ url_for('auth.dev_login') }}">Dev-Login ohne LDAP (nur lokale Entwicklung)</a>
+        <a href="{{ url_for('auth.dev_login') }}">Dev-Login als Admin (nur lokale Entwicklung)</a>
       </p>
     {% endif %}
   </div>

@@ -7,6 +7,7 @@
       Exportiere im Kurs den Bericht "Aktivitätsabschluss" als CSV und lade die Datei hier hoch.
     </p>
     <form method="post" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label for="csv_file">CSV-Datei</label>
       <input type="file" id="csv_file" name="csv_file" accept=".csv" required>
       <button type="submit">Importieren</button>

@@ -6,11 +6,14 @@
     <div class="actions">
       <a class="button" href="{{ url_for('topics.manage', dashboard_id=dashboard.id) }}">Themenbereiche</a>
       <a class="button" href="{{ url_for('dashboard.upload', dashboard_id=dashboard.id) }}">CSV importieren</a>
-      <form method="post" action="{{ url_for('dashboard.delete', dashboard_id=dashboard.id) }}"
-            onsubmit="return confirm('Klasse \'{{ dashboard.name }}\' inkl. aller Importe wirklich löschen?');"
-            style="display:inline">
-        <button type="submit" class="button button-danger">Löschen</button>
-      </form>
+      {% if current_user.is_admin %}
+        <form method="post" action="{{ url_for('dashboard.delete', dashboard_id=dashboard.id) }}"
+              onsubmit="return confirm('Klassengruppe \'{{ dashboard.name }}\' inkl. aller Importe wirklich löschen?');"
+              style="display:inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="button button-danger">Löschen</button>
+        </form>
+      {% endif %}
     </div>
   </div>
 
@@ -22,6 +25,34 @@
       &middot; {{ stats.student_count }} Schüler:innen
       &middot; {{ stats.activity_count }} Aktivitäten
     </p>
+
+    <div class="card target-card">
+      <form method="post" action="{{ url_for('dashboard.set_target', dashboard_id=dashboard.id) }}" class="target-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="target">Soll-Stand: die Klasse sollte sein bis einschließlich</label>
+        <div class="target-row">
+          <select id="target" name="target">
+            <option value="">Keiner (Einstufung nach Klassenverteilung)</option>
+            <optgroup label="Themenbereiche">
+              {% for o in stats.target.choices %}
+                <option value="{{ o.value }}" {{ 'selected' if o.value == stats.target.value }}>{{ o.label }}</option>
+              {% endfor %}
+            </optgroup>
+            <optgroup label="Einzelne Aktivitäten">
+              {% for o in stats.target.singles %}
+                <option value="{{ o.value }}" {{ 'selected' if o.value == stats.target.value }}>{{ o.label }}</option>
+              {% endfor %}
+            </optgroup>
+          </select>
+          <button type="submit">Speichern</button>
+        </div>
+        {% if stats.target.missing %}
+          <p class="muted">Die gesetzte Aktivität gibt es im aktuellen Import nicht mehr. Bitte neu wählen; bis dahin gilt kein Soll-Stand.</p>
+        {% elif stats.target.set %}
+          <p class="muted">Soll: {{ stats.target.due_total }} von {{ stats.activity_count }} Aktivitäten (bis „{{ stats.target.label }}"). Offene Aufgaben davor gelten als fällig.</p>
+        {% endif %}
+      </form>
+    </div>
 
     <div class="grid grid-stats">
       <div class="card stat-card">
@@ -36,7 +67,12 @@
         </div>
       {% endfor %}
     </div>
-    {% if stats.student_count < 4 %}
+    {% if stats.target.set and not stats.target.missing %}
+      <p class="muted">
+        Einstufung nach Soll-Stand: Vorn = Soll vollständig erledigt, Im Feld = mindestens 70&nbsp;% des Solls,
+        Hinterher = weniger.
+      </p>
+    {% elif stats.student_count < 4 %}
       <p class="muted">Bei weniger als 4 Schüler:innen wird nicht in Vorn/Hinterher eingestuft.</p>
     {% else %}
       <p class="muted">
@@ -61,9 +97,16 @@
             <span class="rank-bar" title="{{ s.completed }} von {{ s.total }} abgeschlossen">
               <span class="rank-fill group-fill-{{ s.group }}" style="width: {{ s.percent }}%"></span>
               <span class="rank-median" style="left: {{ stats.median }}%" title="Klassenmedian {{ stats.median }}%"></span>
+              {% if stats.target.set and not stats.target.missing %}
+                <span class="rank-target" style="left: {{ stats.target.percent_of_all }}%" title="Soll-Stand: {{ stats.target.label }}"></span>
+              {% endif %}
             </span>
             <span class="rank-percent">{{ s.percent }}%</span>
-            <span class="rank-open" title="Offene Aktivitäten">{{ s.total - s.completed }} offen</span>
+            {% if s.due is not none %}
+              <span class="rank-open {{ 'rank-due' if s.due }}" title="Offene Aktivitäten bis zum Soll-Stand">{{ s.due }} fällig</span>
+            {% else %}
+              <span class="rank-open" title="Offene Aktivitäten">{{ s.total - s.completed }} offen</span>
+            {% endif %}
             <span class="rank-delta muted">
               {% if s.delta is not none %}{{ '+' if s.delta > 0 else '' }}{{ s.delta }}{% endif %}
             </span>
@@ -72,14 +115,14 @@
         {% endfor %}
       </div>
       <p class="muted rank-legend">
-        Senkrechte Linie = Klassenmedian.
+        Durchgezogene Linie = Klassenmedian{% if stats.target.set and not stats.target.missing %}, gestrichelte Linie = Soll-Stand{% endif %}.
         {% if stats.previous_import_at %}Die Zahl rechts zeigt die neu erledigten Aktivitäten seit dem Import vom {{ stats.previous_import_at.strftime('%d.%m.%Y') }}.{% endif %}
       </p>
     </div>
 
     <h2 style="margin-top:24px">Offene Aufgaben</h2>
     {% if stats.open_activities %}
-      <p class="muted">Sortiert danach, wie viele Schüler:innen die Aktivität noch nicht erledigt haben. Zum Aufklappen anklicken.</p>
+      <p class="muted">Fällige Aufgaben (bis zum Soll-Stand) stehen zuerst, danach nach Zahl der Schüler:innen, die sie noch nicht erledigt haben. Zum Aufklappen anklicken.</p>
       <div class="card">
         <ul class="open-list">
           {% for a in stats.open_activities[:15] %}
@@ -87,7 +130,7 @@
               <details>
                 <summary>
                   <span class="open-count">{{ a.open_count }}</span>
-                  <span class="open-name">{{ a.name }}</span>
+                  <span class="open-name">{{ a.name }}{% if a.due %} <span class="due-tag">fällig</span>{% endif %}</span>
                   <span class="muted open-topic">{{ a.topic }}</span>
                 </summary>
                 <div class="open-students">
@@ -128,7 +171,7 @@
 
     <h2 style="margin-top:24px">Übersicht: wer hat was erledigt?</h2>
     <p class="muted">
-      Grün = abgeschlossen, grau = offen. Zeilen sind nach Fortschritt sortiert (weitester oben),
+      Grün = abgeschlossen, grau = offen{% if stats.target.set and not stats.target.missing %}, orange = offen und fällig (bis zum Soll-Stand){% endif %}. Zeilen sind nach Fortschritt sortiert (weitester oben),
       der Gruppenfilter oben gilt auch hier. Zeile anklicken für die Detailansicht.
     </p>
     <div class="card heatmap-wrap">
@@ -156,7 +199,7 @@
                 <span class="heat-badge" style="background:{{ row.heat_bg }};color:{{ row.heat_text }}">{{ row.percent }}%</span>
               </td>
               {% for cell in row.cells %}
-                <td class="heatmap-cell {{ 'cell-done' if cell.completed else 'cell-open' }}"
+                <td class="heatmap-cell {{ 'cell-done' if cell.completed else ('cell-due' if cell.due else 'cell-open') }}"
                     title="{{ 'abgeschlossen' if cell.completed else 'nicht abgeschlossen' }}{% if cell.completed_at %} am {{ cell.completed_at.strftime('%d.%m.%Y') }}{% endif %}"></td>
               {% endfor %}
             </tr>

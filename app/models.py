@@ -8,8 +8,44 @@ def _utcnow():
     return datetime.now(timezone.utc)
 
 
+# Zuordnung Benutzer <-> Klassengruppe (m:n). Der Admin pflegt sie; eine Lehrkraft sieht
+# ausschließlich die Klassengruppen, denen sie zugeordnet ist.
+user_class = db.Table(
+    "user_class",
+    db.Column("user_id", db.Integer, db.ForeignKey("user.id"), primary_key=True),
+    db.Column(
+        "class_dashboard_id",
+        db.Integer,
+        db.ForeignKey("class_dashboard.id"),
+        primary_key=True,
+    ),
+)
+
+
+class User(db.Model):
+    """Lokales Benutzerkonto (Lehrkraft oder Admin). Konten legt ausschließlich ein Admin an."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(64), unique=True, nullable=False)  # immer kleingeschrieben
+    display_name = db.Column(db.String(200), nullable=False)
+    password_hash = db.Column(db.String(300), nullable=False)
+    is_admin = db.Column(db.Boolean, nullable=False, default=False)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime(timezone=True), default=_utcnow)
+
+    classes = db.relationship(
+        "ClassDashboard",
+        secondary=user_class,
+        back_populates="members",
+        order_by="ClassDashboard.name",
+    )
+
+
 class ClassDashboard(db.Model):
-    """Ein Dashboard für genau eine Klasse, verwaltet von genau einer Lehrkraft.
+    """Eine Klassengruppe mit eigenem Dashboard (z. B. "ITS10 ITG10A").
+
+    Fach/Jahrgang und Klasse stecken im frei gewählten Namen. Der Admin legt die Gruppe an
+    und ordnet ihr Lehrkräfte zu.
 
     Dauerhaft gespeichert werden nur die Klasse selbst, ihre Themenbereiche und die
     Zuordnung Aktivitätsname -> Themenbereich. Schüler:innen, Aktivitäten und Abschlüsse
@@ -18,12 +54,20 @@ class ClassDashboard(db.Model):
     """
 
     id = db.Column(db.Integer, primary_key=True)
-    owner_username = db.Column(db.String(128), nullable=False, index=True)
-    name = db.Column(db.String(200), nullable=False)
+    name = db.Column(db.String(200), nullable=False, unique=True)
+    # Manuell gesetzter Soll-Stand: Aktivitätsname, bis einschließlich dem die Klasse sein
+    # sollte (None = keine Marke, dann Einstufung nach Klassenverteilung).
+    target_activity_name = db.Column(db.String(300), nullable=True)
     # Für V2 (Abruf auf Klick): konfigurierbare Export-URL des Aktivitätsabschluss-Berichts.
     export_url = db.Column(db.String(500))
     created_at = db.Column(db.DateTime(timezone=True), default=_utcnow)
 
+    members = db.relationship(
+        "User",
+        secondary=user_class,
+        back_populates="classes",
+        order_by="User.display_name",
+    )
     imports = db.relationship(
         "Import",
         backref="class_dashboard",

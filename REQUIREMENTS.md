@@ -22,24 +22,26 @@ schrittweise hinzu – die Architektur muss dafür erweiterbar sein.
 
 ## 2. Nutzergruppen & Rollen
 
-- **Lehrkräfte**: Einzige Nutzergruppe im ersten Schritt. Authentifizierung per LDAP gegen das
-  UCS-AD der Schule; Login nur erlaubt für Mitglieder der AD-Gruppe **"Lehrer"** (Gruppenname
-  konfigurierbar, für den Start hartkodiert/als Konfigwert).
-- **Mandantenmodell**: Jede Lehrkraft verwaltet **ihre eigenen** Klassen-Dashboards (eigene
-  Klassen + zugehörige Export-URLs) und sieht ausschließlich diese. Kein Zugriff auf Dashboards
-  anderer Lehrkräfte im ersten Schritt (spätere Freigabe/Teilen ist denkbar, aber nicht Teil von
-  V1).
-- Keine Admin-Rolle in V1 (jede Lehrkraft verwaltet sich selbst). Eine spätere Admin-Rolle
-  (globale Konfiguration, Benutzerverwaltung, Freigaben) ist als Erweiterung vorgesehen, aber
-  nicht Teil des ersten Prototyps.
+- **Lehrkräfte**: Arbeiten mit den Klassengruppen, die ihnen zugeordnet sind: CSV hochladen,
+  Soll-Stand setzen, Themenbereiche pflegen, Dashboard ansehen. Sie sehen ausschließlich ihre
+  eigenen Klassengruppen.
+- **Admin**: Legt Benutzerkonten und **Klassengruppen** an, ordnet Benutzer einer oder mehreren
+  Klassengruppen zu, setzt Passwörter zurück und deaktiviert/löscht Konten. Ein Admin sieht
+  alle Klassengruppen und darf sie löschen. Den ersten Admin legt `ADMIN_PASSWORD` beim
+  ersten Start oder `flask create-admin` an.
+- **Klassengruppe** = ein Dashboard mit eigenem Namen. Fach/Jahrgang und Klasse stecken im frei
+  gewählten Namen (z. B. "ITS10 ITG10A"); es gibt dafür kein eigenes Datenmodell.
+- **Authentifizierung**: rein lokal mit Benutzername und Passwort (gehasht gespeichert).
+  LDAP/UCS-AD ist als optionale Erweiterung für später vorgesehen (`app/auth/ldap_auth.py`
+  liegt bereit, ist aber nicht angebunden).
 
 ## 3. Funktionale Anforderungen
 
 ### 3.1 V1 – CSV-Upload → Dashboard
 
-- Login via LDAP/UCS-AD (siehe 4.2).
-- Lehrkraft kann eine oder mehrere **Klassen** anlegen (Name/Bezeichnung frei wählbar), jede
-  Klasse gehört genau einer Lehrkraft.
+- Lokaler Login (siehe 4.2); Benutzer und Klassengruppen verwaltet der Admin.
+- Klassengruppen legt der Admin an (Name frei wählbar, z. B. "ITS10 ITG10A"); Lehrkräfte arbeiten
+  mit den ihnen zugeordneten.
 - Lehrkraft lädt für eine Klasse eine CSV-Datei (Moodle-Export "Aktivitätsabschluss") hoch.
   **Der Upload ist die Grundfunktion von V1 und bleibt in allen späteren Versionen als
   gleichwertiger Weg erhalten** (kein bloßer Fallback).
@@ -61,8 +63,14 @@ schrittweise hinzu – die Architektur muss dafür erweiterbar sein.
   pro Klasse vergeben wird (sonst das Kürzel). Eine manuelle Zuordnung hat Vorrang;
   Aktivitäten ohne Hashtag stehen unter "Sonstige". Die Hashtags erscheinen nicht in den
   Anzeigenamen der App.
-- Geplant für V1: optionale **Soll-Marke** pro Klasse ("bis hier sollte die Klasse sein") als
-  zusätzlicher Maßstab für voraus/hinterher (braucht ein neues Feld pro Klasse).
+- **Soll-Stand** (Entscheidung 2026-10-24: nur manuell): Die Lehrkraft wählt pro Klassengruppe
+  eine Aktivität oder das Ende eines Themenbereichs, bis zu der die Klasse sein soll. Alle
+  Aktivitäten bis einschließlich dieser Marke sind "fällig". Mit Soll-Stand gilt: Vorn = Soll
+  vollständig erledigt, Im Feld = mindestens 70 % des Solls, Hinterher = weniger; ohne
+  Soll-Stand entscheiden die Quartile der Klasse. Fällige offene Aufgaben werden in
+  Rangliste, Heatmap, Offen-Liste und Schülerseite hervorgehoben. Fehlt die Marken-Aktivität
+  nach einem Import, wird sie ignoriert und die Lehrkraft darauf hingewiesen. Eine
+  datumsgesteuerte Marke ist bewusst nicht vorgesehen.
 - **Dynamische Aktivitätsliste**: Aktivitäten im Kurs können sich zwischen zwei Auswertungen
   ändern (neue kommen hinzu, alte fallen ggf. weg). Das Datenmodell und der Import dürfen die
   Aktivitätsliste **nicht fest verdrahten** – jeder Import muss die im CSV enthaltenen
@@ -123,17 +131,20 @@ abschließend, nicht zwingend Teil von V1):
   nicht dauerhaft als Datei vorgehalten werden, sondern werden geparst in die DB übernommen).
 - Frontend: Serverseitig gerendert (Flask/Jinja) mit einer JS-Chart-Bibliothek für die grafische
   Darstellung (z. B. Chart.js) – kein separates SPA-Framework nötig für den Funktionsumfang.
-- LDAP-Anbindung: über eine Standard-Python-LDAP-Bibliothek (z. B. `ldap3`) gegen das UCS-AD.
+- Optional für später: LDAP-Anbindung über `ldap3` gegen das UCS-AD.
 
 ### 4.2 Authentifizierung & Autorisierung
 
-- Login ausschließlich via LDAP-Bind gegen das UCS-AD.
-- Nur Mitglieder der konfigurierten AD-Gruppe (Start: "Lehrer") dürfen sich anmelden; Prüfung
-  der Gruppenmitgliedschaft nach erfolgreichem Bind.
-- Keine lokale Passwortspeicherung von Nutzer:innen (Login-Credentials gehen nur zur LDAP-Prüfung
-  durch, werden nicht persistiert).
-- Sitzungsverwaltung über Flask-Sessions (server-seitig, sichere Cookies).
-- Jede Lehrkraft sieht/verwaltet ausschließlich ihre eigenen Klassen-Dashboards (siehe 2.).
+- Lokale Benutzerverwaltung: Konten legt nur ein Admin an. Passwörter werden gehasht
+  gespeichert (werkzeug), Mindestlänge 8 Zeichen; Benutzer können ihr Passwort selbst ändern.
+- Deaktivierte oder gelöschte Konten verlieren sofort den Zugriff (der Benutzer wird bei jeder
+  Anfrage aus der Datenbank geladen).
+- Zugriff auf eine Klassengruppe nur für zugeordnete Lehrkräfte und Admins (403 sonst).
+- Alle POST-Anfragen sind per CSRF-Token geschützt; Sitzungs-Cookie mit HttpOnly und
+  SameSite=Lax; Weiterleitung nach dem Login nur auf interne Ziele.
+- Nicht enthalten: Sperre nach Fehlversuchen, Zwei-Faktor, Passwort-Zurücksetzen per Mail.
+- Optional später: Anmeldung per LDAP gegen das UCS-AD (Gruppe "Lehrer"); die Konten würden
+  dann beim ersten Login lokal angelegt und vom Admin Klassengruppen zugeordnet.
 
 ### 4.3 Datenschutz / Datenhaltung
 
@@ -151,7 +162,7 @@ abschließend, nicht zwingend Teil von V1):
 - Zielbetrieb: **Docker-Container** auf einem Schul-/eigenen Server.
 - Projekt liefert `Dockerfile` sowie `docker-compose.yml` (Flask/Gunicorn-Service + Volume für
   die SQLite-Datenbankdatei, damit Daten Container-Neustarts überleben).
-- Konfiguration (LDAP-Server, Basis-DN, Gruppenname, Secret-Key, ggf. Dienst-Account-Credentials
+- Konfiguration (Secret-Key, Erst-Admin, ggf. Dienst-Account-Credentials
   für V2/V3) über Umgebungsvariablen (`.env`, nicht eingecheckt).
 
 ### 4.5 Sonstiges
@@ -163,9 +174,10 @@ abschließend, nicht zwingend Teil von V1):
 
 ## 5. Grobes Datenmodell (Entwurf, wird in der Planungsphase verfeinert)
 
-- **User**: (kein lokales Passwort) – LDAP-Login-Name, Anzeige-Name, zuletzt eingeloggt.
-- **ClassDashboard**: gehört zu genau einem User; Name/Bezeichnung; Export-URL (für V2);
-  Kurs-Referenz/Gruppe (für V4); Soll-Marke (V1, geplant). Dauerhaft gespeichert werden nur
+- **User**: Benutzername (eindeutig, klein geschrieben), Anzeigename, Passwort-Hash,
+  Admin-Flag, aktiv-Flag.
+- **ClassDashboard** (Klassengruppe): eindeutiger Name; Mitglieder (m:n zu User); Export-URL
+  (für V2); Kurs-Referenz/Gruppe (für V4); **Soll-Stand** (Aktivitätsname). Dauerhaft gespeichert werden nur
   die Klasse, ihre **Themenbereiche** und die **Zuordnung Aktivitätsname → Themenbereich**.
 - **Import**: gehört zu einer ClassDashboard; Zeitstempel; Quelle (Upload/Abruf). Ein Import
   ist ein in sich geschlossener **Schnappschuss**: Schüler:innen, Aktivitäten (in CSV-

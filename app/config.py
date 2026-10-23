@@ -14,6 +14,16 @@ class Config:
         "LDAP_TEACHER_GROUP_DN", "cn=Lehrer,cn=groups,dc=schule,dc=local"
     )
 
+    # Schutz vor Cross-Site-Request-Forgery für alle POST-Anfragen (siehe app/security.py).
+    CSRF_ENABLED = True
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+
+    # Optionaler Erst-Admin: Gibt es noch keinen Benutzer und ist ADMIN_PASSWORD gesetzt,
+    # wird beim Start ein Admin mit diesen Werten angelegt. Danach aus der Umgebung entfernen.
+    ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
+    ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+
     # NUR für lokale Entwicklung ohne LDAP-Server: überspringt den LDAP-Login.
     # Muss in Produktion unbedingt false/unset bleiben.
     DEV_LOGIN_ENABLED = os.environ.get("DEV_LOGIN_ENABLED", "false").lower() == "true"

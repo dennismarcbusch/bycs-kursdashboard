@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Benutzer - Admin - BYCS-Kursdashboard{% endblock %}
+{% block content %}
+  <div class="page-header"><h1>Administration</h1></div>
+  {% set active = 'users' %}{% include "admin/_nav.html" %}
+
+  <div class="card" style="margin-bottom:20px">
+    <h2>Benutzer</h2>
+    <table class="table">
+      <thead>
+        <tr><th>Name</th><th>Benutzername</th><th>Rolle</th><th>Klassengruppen</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+          <tr class="{{ 'row-inactive' if not u.is_active }}">
+            <td>{{ u.display_name }}{% if not u.is_active %} <span class="muted">(deaktiviert)</span>{% endif %}</td>
+            <td><code>{{ u.username }}</code></td>
+            <td>{{ 'Admin' if u.is_admin else 'Lehrkraft' }}</td>
+            <td>
+              {% if u.is_admin %}<span class="muted">alle</span>
+              {% else %}{{ u.classes | map(attribute='name') | join(', ') or '–' }}{% endif %}
+            </td>
+            <td><a href="{{ url_for('admin.edit_user', user_id=u.id) }}">Bearbeiten</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card card-narrow" style="margin:0">
+    <h2>Neuen Benutzer anlegen</h2>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="username">Benutzername</label>
+      <input type="text" id="username" name="username" required autocomplete="off" placeholder="z. B. mmustermann">
+      <label for="display_name">Anzeigename</label>
+      <input type="text" id="display_name" name="display_name" required placeholder="z. B. Max Mustermann">
+      <label for="password">Start-Passwort (mind. 8 Zeichen)</label>
+      <input type="password" id="password" name="password" required autocomplete="new-password">
+      <label class="inline-check"><input type="checkbox" name="is_admin"> Admin (sieht alle Klassengruppen und verwaltet Benutzer)</label>
+      {% if groups %}
+        <label>Klassengruppen</label>
+        <div class="check-list">
+          {% for g in groups %}
+            <label class="inline-check"><input type="checkbox" name="groups" value="{{ g.id }}"> {{ g.name }}</label>
+          {% endfor %}
+        </div>
+      {% endif %}
+      <button type="submit">Anlegen</button>
+    </form>
+  </div>
+{% endblock %}

@@ -4,9 +4,9 @@ Getrennt von dashboard/routes.py gehalten, da es sich um einen eigenständigen
 Verwaltungsbereich handelt (Themen anlegen/löschen, Aktivitäten zuordnen).
 """
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 
-from app.auth.decorators import login_required
+from app.auth.decorators import get_accessible_dashboard, login_required
 from app.extensions import db
 from app.models import ActivityTopic, ClassDashboard, Topic
 from app.tags import normalize_tag
@@ -14,19 +14,10 @@ from app.tags import normalize_tag
 bp = Blueprint("topics", __name__)
 
 
-def _get_owned_dashboard(dashboard_id: int) -> ClassDashboard:
-    cd = db.session.get(ClassDashboard, dashboard_id)
-    if cd is None:
-        abort(404)
-    if cd.owner_username != session["username"]:
-        abort(403)
-    return cd
-
-
 @bp.route("/dashboards/<int:dashboard_id>/topics", methods=["GET", "POST"])
 @login_required
 def manage(dashboard_id):
-    cd = _get_owned_dashboard(dashboard_id)
+    cd = get_accessible_dashboard(dashboard_id)
 
     if request.method == "POST":
         action = request.form.get("action")
@@ -104,7 +95,7 @@ def manage(dashboard_id):
 @bp.route("/dashboards/<int:dashboard_id>/topics/<int:topic_id>/delete", methods=["POST"])
 @login_required
 def delete(dashboard_id, topic_id):
-    cd = _get_owned_dashboard(dashboard_id)
+    cd = get_accessible_dashboard(dashboard_id)
     topic = db.session.get(Topic, topic_id)
     if topic is None or topic.class_dashboard_id != cd.id:
         abort(404)

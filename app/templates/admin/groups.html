@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Klassengruppen - Admin - BYCS-Kursdashboard{% endblock %}
+{% block content %}
+  <div class="page-header"><h1>Administration</h1></div>
+  {% set active = 'groups' %}{% include "admin/_nav.html" %}
+
+  <div class="card" style="margin-bottom:20px">
+    <h2>Klassengruppen</h2>
+    {% if groups %}
+      <table class="table">
+        <thead><tr><th>Name</th><th>Lehrkräfte</th><th>Letzter Import</th><th></th></tr></thead>
+        <tbody>
+          {% for g in groups %}
+            <tr>
+              <td><a href="{{ url_for('dashboard.detail', dashboard_id=g.id) }}">{{ g.name }}</a></td>
+              <td>{{ g.members | map(attribute='display_name') | join(', ') or '–' }}</td>
+              <td class="muted">{% if g.imports %}{{ g.imports[0].imported_at.strftime('%d.%m.%Y') }}{% else %}–{% endif %}</td>
+              <td><a href="{{ url_for('admin.edit_group', group_id=g.id) }}">Bearbeiten</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">Noch keine Klassengruppe angelegt.</p>
+    {% endif %}
+  </div>
+
+  <div class="card card-narrow" style="margin:0">
+    <h2>Neue Klassengruppe anlegen</h2>
+    <p class="muted">Fach/Jahrgang und Klasse stehen im Namen, z. B. „ITS10 ITG10A".</p>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="name">Name</label>
+      <input type="text" id="name" name="name" required placeholder="z. B. ITS10 ITG10A">
+      <button type="submit">Anlegen</button>
+    </form>
+  </div>
+{% endblock %}

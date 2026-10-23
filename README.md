@@ -7,8 +7,13 @@ Details zum Funktionsumfang, Datenmodell und den offenen Punkten: [REQUIREMENTS.
 
 ## Aktueller Stand (V1-Prototyp)
 
-- Login via LDAP gegen das UCS-AD, beschränkt auf die Gruppe "Lehrer".
-- Jede Lehrkraft verwaltet eigene Klassen-Dashboards.
+- Lokale Benutzerverwaltung: Ein Admin legt Benutzerkonten und **Klassengruppen** an (Fach/
+  Jahrgang und Klasse im Namen, z. B. "ITS10 ITG10A") und ordnet Benutzer einer oder mehreren
+  Gruppen zu. Lehrkräfte sehen nur ihre Gruppen; Admins sehen alle. LDAP ist als Option für
+  später vorgesehen (nicht angebunden).
+- **Soll-Stand** pro Klassengruppe (manuell): Aktivität oder Ende eines Themenbereichs, bis zu
+  der die Klasse sein soll. Damit werden Vorn / Im Feld / Hinterher und die "fälligen" offenen
+  Aufgaben bestimmt; ohne Soll-Stand entscheiden die Quartile der Klasse.
 - CSV-Export des Moodle-Berichts "Aktivitätsabschluss" (Bericht: Fortschritt) manuell
   hochladen.
 - Die Aktivitätenliste wird bei jedem Import neu aus der CSV-Kopfzeile bestimmt - neue
@@ -44,7 +49,7 @@ nicht implementiert.
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
-cp .env.example .env   # Werte anpassen (SECRET_KEY, LDAP_*)
+cp .env.example .env   # Werte anpassen (SECRET_KEY, ADMIN_PASSWORD)
 python wsgi.py
 ```
 
@@ -66,6 +71,17 @@ docker compose up -d --build
 Die App läuft dann auf Port 8000. Die SQLite-Datenbank liegt im Docker-Volume
 `instance-data` und überlebt Container-Neustarts.
 
+## Erster Admin
+
+Entweder `ADMIN_PASSWORD` (und optional `ADMIN_USERNAME`) beim ersten Start setzen oder per
+Kommandozeile anlegen:
+
+```bash
+flask --app wsgi create-admin mein-name --name "Mein Name"
+```
+
+Weitere Benutzer und Klassengruppen legt der Admin unter "Administration" an.
+
 ## Konfiguration
 
 Alle Einstellungen erfolgen über Umgebungsvariablen (siehe `.env.example`):
@@ -73,13 +89,10 @@ Alle Einstellungen erfolgen über Umgebungsvariablen (siehe `.env.example`):
 | Variable | Bedeutung |
 |---|---|
 | `SECRET_KEY` | Flask Session-Secret, unbedingt in Produktion setzen |
-| `LDAP_SERVER` | z. B. `ldap://ucs.schule.local` |
-| `LDAP_USE_SSL` | `true`/`false` |
-| `LDAP_BASE_DN` | Such-Basis für die Gruppenprüfung |
-| `LDAP_USER_DN_TEMPLATE` | Bind-DN/UPN-Vorlage, `{username}` wird ersetzt |
-| `LDAP_TEACHER_GROUP_DN` | DN der Gruppe, die sich anmelden darf |
+| `ADMIN_USERNAME` | Benutzername des Erst-Admins (Standard `admin`) |
+| `ADMIN_PASSWORD` | Legt beim allerersten Start (solange es keinen Benutzer gibt) einen Admin mit diesem Passwort an. Danach aus der `.env` entfernen. |
 | `DATABASE_URL` | optional, überschreibt den Standard-SQLite-Pfad (`instance/app.db`) |
-| `DEV_LOGIN_ENABLED` | `true`/`false` - **nur lokale Entwicklung**: blendet einen Login-Bypass ohne LDAP ein (`/dev-login`). In Produktion niemals setzen. |
+| `DEV_LOGIN_ENABLED` | `true`/`false` - **nur lokale Entwicklung**: blendet einen Login-Bypass als Admin `dev-admin` ein (`/dev-login`). In Produktion niemals setzen. |
 
 ## Bekannte Einschränkungen (V1)
 
@@ -92,8 +105,11 @@ Alle Einstellungen erfolgen über Umgebungsvariablen (siehe `.env.example`):
   Export davon ab (z. B. andere Spracheinstellung), muss `app/importer/csv_parser.py`
   angepasst werden.
 - Kein Datenbank-Migrationswerkzeug (Flask-Migrate) - Schema-Änderungen erfordern aktuell
-  ein manuelles Migrieren/Neuanlegen der SQLite-Datei (zuletzt geändert: Importe sind
-  Schnappschüsse, siehe unten; eine ältere `instance/app.db` muss gelöscht werden).
+  ein manuelles Migrieren/Neuanlegen der SQLite-Datei (zuletzt geändert: Benutzerverwaltung,
+  Klassengruppen und Soll-Stand; eine ältere `instance/app.db` muss gelöscht werden, die
+  Datenbank wird beim Start neu angelegt).
+- Der Login hat keine Sperre nach Fehlversuchen und keinen Passwort-Reset per Mail; ein
+  vergessenes Passwort setzt der Admin zurück.
 - Jeder Import ersetzt den Stand komplett (Schüler:innen, Aktivitäten in CSV-Reihenfolge,
   Abschlüsse); aufbewahrt werden nur die letzten zwei Importe. Dauerhaft bleiben Klassen,
   Themenbereiche und deren Zuordnung (über den Aktivitätsnamen). Wird eine Aktivität in

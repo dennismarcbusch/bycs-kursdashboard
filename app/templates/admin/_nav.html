@@ -1,0 +1,4 @@
+<nav class="subnav">
+  <a href="{{ url_for('admin.users') }}" class="{{ 'active' if active == 'users' }}">Benutzer</a>
+  <a href="{{ url_for('admin.groups') }}" class="{{ 'active' if active == 'groups' }}">Klassengruppen</a>
+</nav>

@@ -9,7 +9,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def _make_dashboard_with_import():
-    cd = ClassDashboard(owner_username="testlehrer", name="Testklasse")
+    cd = ClassDashboard(name="Testklasse")
     db.session.add(cd)
     db.session.commit()
     with open(FIXTURES / "sample_progress.csv", "rb") as f:

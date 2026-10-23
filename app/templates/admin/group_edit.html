@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}{{ group.name }} - Admin - BYCS-Kursdashboard{% endblock %}
+{% block content %}
+  <div class="page-header">
+    <h1>{{ group.name }}</h1>
+    <a href="{{ url_for('admin.groups') }}">&larr; Zurück zu den Klassengruppen</a>
+  </div>
+
+  <div class="card card-narrow" style="margin:0 0 20px">
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="name">Name</label>
+      <input type="text" id="name" name="name" required value="{{ group.name }}">
+      <label>Zugeordnete Lehrkräfte</label>
+      <div class="check-list">
+        {% for u in users if not u.is_admin %}
+          <label class="inline-check">
+            <input type="checkbox" name="members" value="{{ u.id }}" {{ 'checked' if u in group.members }}>
+            {{ u.display_name }} <code>{{ u.username }}</code>{% if not u.is_active %} <span class="muted">(deaktiviert)</span>{% endif %}
+          </label>
+        {% else %}
+          <p class="muted">Es gibt noch keine Lehrkräfte.</p>
+        {% endfor %}
+      </div>
+      <p class="muted">Admins sehen alle Klassengruppen und müssen nicht zugeordnet werden.</p>
+      <button type="submit">Speichern</button>
+    </form>
+  </div>
+
+  <form method="post" action="{{ url_for('admin.delete_group', group_id=group.id) }}"
+        onsubmit="return confirm('Klassengruppe {{ group.name }} inkl. aller Importe wirklich löschen?');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="button button-danger">Klassengruppe löschen</button>
+  </form>
+{% endblock %}
