@@ -31,24 +31,38 @@ def _percent(completed: int, total: int) -> float:
 
 
 def _topic_groups(class_dashboard: ClassDashboard, import_: Import):
-    """Aktivitäten des Imports (in CSV-Reihenfolge), gruppiert nach Themenbereich
-    (Reihenfolge: Topic-Anlage, nicht zugeordnete Aktivitäten zuletzt unter "Sonstige").
+    """Aktivitäten des Imports (in CSV-Reihenfolge), gruppiert nach Themenbereich.
 
-    Die Zuordnung läuft über den Aktivitätsnamen und überlebt dadurch jeden Import."""
-    topic_of = {a.activity_name: a.topic_id for a in class_dashboard.topic_assignments}
-    groups = [
-        {
-            "id": t.id,
-            "name": t.name,
-            "activities": [a for a in import_.activities if topic_of.get(a.name) == t.id],
-        }
-        for t in class_dashboard.topics
-    ]
-    known = {t.id for t in class_dashboard.topics}
-    unassigned = [a for a in import_.activities if topic_of.get(a.name) not in known]
+    Reihenfolge der Zuordnung: 1. manuelle Zuordnung (über den Aktivitätsnamen), 2. Hashtag
+    am Namensende - passt er zu einem Themenbereich mit diesem Kürzel, gehört die Aktivität
+    dazu, sonst bildet der Hashtag selbst einen Bereich -, 3. "Sonstige".
+    Die Bereiche stehen in der Reihenfolge, in der sie im Kurs zuerst vorkommen; "Sonstige"
+    steht zuletzt. Bereiche ohne Aktivitäten im aktuellen Import entfallen."""
+    manual = {a.activity_name: a.topic_id for a in class_dashboard.topic_assignments}
+    topics_by_id = {t.id: t for t in class_dashboard.topics}
+    topics_by_tag = {t.tag.lower(): t for t in class_dashboard.topics if t.tag}
+
+    groups: dict[tuple, dict] = {}
+    unassigned = []
+    for activity in import_.activities:
+        topic = topics_by_id.get(manual.get(activity.name))
+        if topic is None and activity.tag:
+            topic = topics_by_tag.get(activity.tag.lower())
+        if topic is not None:
+            key, group_id, label = ("topic", topic.id), topic.id, topic.name
+        elif activity.tag:
+            key, group_id, label = ("tag", activity.tag.lower()), None, activity.tag
+        else:
+            unassigned.append(activity)
+            continue
+        groups.setdefault(
+            key, {"id": group_id, "name": label, "activities": []}
+        )["activities"].append(activity)
+
+    result = list(groups.values())  # Einfügereihenfolge = erstes Vorkommen im Kurs
     if unassigned:
-        groups.append({"id": None, "name": SONSTIGE, "activities": unassigned})
-    return groups
+        result.append({"id": None, "name": SONSTIGE, "activities": unassigned})
+    return result
 
 
 def _classify(percent: float, median: float, q1: float, q3: float, n: int) -> str:
@@ -237,7 +251,7 @@ def build_stats(class_dashboard: ClassDashboard, import_: Import) -> dict:
                 open_activities.append(
                     {
                         "id": activity.id,
-                        "name": activity.name,
+                        "name": activity.display_name,
                         "topic": group["name"],
                         "open_count": len(students_open),
                         "students": [
@@ -268,7 +282,7 @@ def build_stats(class_dashboard: ClassDashboard, import_: Import) -> dict:
                 {
                     "id": g["id"],
                     "name": g["name"],
-                    "activities": [{"id": a.id, "name": a.name} for a in g["activities"]],
+                    "activities": [{"id": a.id, "name": a.display_name} for a in g["activities"]],
                 }
                 for g in topic_groups
             ],
@@ -297,7 +311,7 @@ def build_student_detail(class_dashboard: ClassDashboard, import_: Import, stude
             is_completed = bool(rec and rec.completed)
             activities.append(
                 {
-                    "name": activity.name,
+                    "name": activity.display_name,
                     "completed": is_completed,
                     "completed_at": rec.completed_at if rec else None,
                     "gap": False,

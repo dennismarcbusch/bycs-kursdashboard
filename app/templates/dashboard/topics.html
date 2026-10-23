@@ -6,12 +6,45 @@
     <a href="{{ url_for('dashboard.detail', dashboard_id=dashboard.id) }}">&larr; Zurück zum Dashboard</a>
   </div>
 
+  <div class="card" style="margin-bottom:20px">
+    <h2>So werden Aktivitäten Themen zugeordnet</h2>
+    <p class="muted" style="margin:0">
+      Hänge im Kurs ein Kürzel mit Hashtag ans Ende des Aktivitätsnamens, z. B.
+      <code>Checkliste ARP #ipv4</code>. Alle Aktivitäten mit demselben Kürzel bilden einen
+      Themenbereich, auch wenn Aktivitäten hinzukommen, wegfallen oder umsortiert werden.
+      Ohne eigenen Namen heißt der Bereich einfach wie das Kürzel. Eine manuelle Zuordnung unten
+      hat Vorrang vor dem Hashtag.
+    </p>
+  </div>
+
+  {% if found_tags %}
+    <div class="card" style="margin-bottom:20px">
+      <h2>Im Kurs gefundene Hashtags</h2>
+      <p class="muted">Optional: gib dem Kürzel einen lesbaren Namen.</p>
+      <ul class="topic-list">
+        {% for tag in found_tags %}
+          <li>
+            <code>#{{ tag }}</code>
+            <form method="post" class="inline-form">
+              <input type="hidden" name="action" value="name_tag">
+              <input type="hidden" name="tag" value="{{ tag }}">
+              <input type="text" name="name" placeholder="Name für #{{ tag }}" aria-label="Name für #{{ tag }}">
+              <button type="submit" class="filter-chip">Benennen</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
   <div class="card card-narrow" style="margin:0 0 20px">
     <h2>Neuen Themenbereich anlegen</h2>
     <form method="post">
       <input type="hidden" name="action" value="create_topic">
       <label for="name">Name</label>
       <input type="text" id="name" name="name" required placeholder="z. B. IPv4 &amp; Subnetting">
+      <label for="tag">Kürzel (optional, ohne #)</label>
+      <input type="text" id="tag" name="tag" placeholder="z. B. ipv4">
       <button type="submit">Anlegen</button>
     </form>
   </div>
@@ -23,9 +56,10 @@
         {% for topic in dashboard.topics %}
           <li>
             {{ topic.name }}
+            {% if topic.tag %}<code>#{{ topic.tag }}</code>{% endif %}
             <span class="muted">({{ topic_counts[topic.id] }} Aktivitäten)</span>
             <form method="post" action="{{ url_for('topics.delete', dashboard_id=dashboard.id, topic_id=topic.id) }}"
-                  style="display:inline" onsubmit="return confirm('Themenbereich \'{{ topic.name }}\' löschen? Zugeordnete Aktivitäten werden zu \'Sonstige\'.');">
+                  style="display:inline" onsubmit="return confirm('Themenbereich \'{{ topic.name }}\' löschen? Zugeordnete Aktivitäten werden zu \'Sonstige\' oder bilden einen Bereich nach ihrem Hashtag.');">
               <button type="submit" class="link-danger">Löschen</button>
             </form>
           </li>
@@ -36,7 +70,7 @@
 
   {% if activities %}
     <div class="card">
-      <h2>Aktivitäten zuordnen</h2>
+      <h2>Aktivitäten manuell zuordnen</h2>
       {% if not dashboard.topics %}
         <p class="muted">Lege zuerst mindestens einen Themenbereich an.</p>
       {% else %}
@@ -49,10 +83,13 @@
             <tbody>
               {% for activity in activities %}
                 <tr>
-                  <td>{{ activity.name }}</td>
+                  <td>
+                    {{ activity.display_name }}
+                    {% if activity.tag %}<code class="muted">#{{ activity.tag }}</code>{% endif %}
+                  </td>
                   <td>
                     <select name="activity-{{ activity.id }}">
-                      <option value="" {{ "selected" if not assignment.get(activity.name) }}>Sonstige</option>
+                      <option value="" {{ "selected" if not assignment.get(activity.name) }}>Automatisch (Hashtag oder Sonstige)</option>
                       {% for topic in dashboard.topics %}
                         <option value="{{ topic.id }}" {{ "selected" if assignment.get(activity.name) == topic.id }}>
                           {{ topic.name }}

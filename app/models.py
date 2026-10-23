@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from app.extensions import db
+from app.tags import split_tag
 
 
 def _utcnow():
@@ -93,9 +94,13 @@ class Topic(db.Model):
         db.Integer, db.ForeignKey("class_dashboard.id"), nullable=False
     )
     name = db.Column(db.String(200), nullable=False)
+    # Optionales Hashtag-Kürzel: Aktivitäten mit "#kürzel" am Namensende gehören automatisch
+    # zu diesem Themenbereich (Groß-/Kleinschreibung egal), siehe app/tags.py.
+    tag = db.Column(db.String(60), nullable=True)
 
     __table_args__ = (
         db.UniqueConstraint("class_dashboard_id", "name", name="uq_topic_per_class"),
+        db.UniqueConstraint("class_dashboard_id", "tag", name="uq_topic_tag_per_class"),
     )
 
 
@@ -127,6 +132,16 @@ class Activity(db.Model):
     __table_args__ = (
         db.UniqueConstraint("import_id", "name", name="uq_activity_per_import"),
     )
+
+    @property
+    def display_name(self) -> str:
+        """Name ohne Themen-Hashtag."""
+        return split_tag(self.name)[0]
+
+    @property
+    def tag(self) -> str | None:
+        """Themen-Hashtag aus dem Namen (ohne '#') oder None."""
+        return split_tag(self.name)[1]
 
 
 class CompletionRecord(db.Model):

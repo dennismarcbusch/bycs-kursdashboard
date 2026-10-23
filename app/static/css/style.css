@@ -393,3 +393,9 @@ select {
 .open-summary { margin-bottom: 8px; }
 .checklist-open .checklist-icon { color: var(--color-group-hinterher); }
 .checklist-open { color: var(--color-text); }
+
+/* Themenverwaltung: Hashtags */
+code { font-size: 0.85em; padding: 1px 5px; border-radius: 4px; background: var(--color-cell-open); }
+.inline-form { flex-direction: row; align-items: center; gap: 8px; margin-left: auto; }
+.inline-form input[type="text"] { padding: 5px 8px; font-size: 0.9rem; }
+.inline-form button { margin: 0; }

@@ -13,9 +13,12 @@ Details zum Funktionsumfang, Datenmodell und den offenen Punkten: [REQUIREMENTS.
   hochladen.
 - Die Aktivitätenliste wird bei jedem Import neu aus der CSV-Kopfzeile bestimmt - neue
   Aktivitäten im Kurs werden automatisch erkannt.
-- Aktivitäten können manuell **Themenbereichen** zugeordnet werden (Verwaltungsseite pro
-  Klasse; die Moodle-CSV enthält keine Information über Kursabschnitte). Die Zuordnung
-  bleibt über künftige Importe erhalten, neue Aktivitäten landen zunächst unter "Sonstige".
+- **Themenbereiche per Hashtag im Aktivitätsnamen:** Ein Kürzel am Namensende, z. B.
+  `Checkliste ARP #ipv4`, ordnet die Aktivität einem Themenbereich zu. Das Thema wandert so
+  mit der Aktivität, auch wenn Aktivitäten hinzukommen, wegfallen oder umsortiert werden.
+  Ohne eigenen Namen heißt der Bereich wie das Kürzel; auf der Verwaltungsseite lässt sich
+  ein lesbarer Name vergeben. Eine manuelle Zuordnung pro Aktivität hat Vorrang, Aktivitäten
+  ohne Hashtag landen unter "Sonstige". Die Bereiche stehen in Kursreihenfolge.
 - Dashboard zeigt: Gesamtfortschritt, Fortschritts-Kacheln pro Themenbereich, eine
   Heatmap (Schüler:innen × Aktivitäten, nach Themenbereich gruppiert) für den
   Klassenüberblick sowie eine Detailtabelle.
@@ -95,5 +98,6 @@ Alle Einstellungen erfolgen über Umgebungsvariablen (siehe `.env.example`):
   Abschlüsse); aufbewahrt werden nur die letzten zwei Importe. Dauerhaft bleiben Klassen,
   Themenbereiche und deren Zuordnung (über den Aktivitätsnamen). Wird eine Aktivität in
   Moodle umbenannt, gilt sie als neue Aktivität und muss neu zugeordnet werden.
-- Themenbereiche werden pro Klasse manuell gepflegt (kein Auto-Import aus Moodle-Kursabschnitten
-  - das wäre erst mit der Moodle-API in V2/V3 möglich).
+- Themenbereiche kommen aus Hashtags im Aktivitätsnamen oder aus manueller Zuordnung; die
+  Moodle-Kursabschnitte stehen nicht im CSV-Export und werden nicht ausgelesen. Die
+  Namen der Themenbereiche (zu einem Kürzel) werden pro Klasse gepflegt.

@@ -54,6 +54,13 @@ schrittweise hinzu – die Architektur muss dafür erweiterbar sein.
 - **Schülerdetail**: Auswahl ohne Umweg, offene Aktivitäten oben (Lücken zuerst = offen,
   obwohl danach im selben Themenbereich etwas erledigt wurde), Vergleich zum Median, Filter
   "nur offene".
+- **Themenbereiche per Hashtag** (Entscheidung 2026-10-24): Die Zuordnung erfolgt über ein
+  Kürzel am Ende des Aktivitätsnamens (`Checkliste ARP #ipv4`), weil Moodle die Kursabschnitte
+  nicht exportiert und Kapitelnummern bei Umsortierungen brechen. Aktivitäten mit gleichem
+  Kürzel (Groß-/Kleinschreibung egal) bilden einen Bereich, dessen Anzeigename optional
+  pro Klasse vergeben wird (sonst das Kürzel). Eine manuelle Zuordnung hat Vorrang;
+  Aktivitäten ohne Hashtag stehen unter "Sonstige". Die Hashtags erscheinen nicht in den
+  Anzeigenamen der App.
 - Geplant für V1: optionale **Soll-Marke** pro Klasse ("bis hier sollte die Klasse sein") als
   zusätzlicher Maßstab für voraus/hinterher (braucht ein neues Feld pro Klasse).
 - **Dynamische Aktivitätsliste**: Aktivitäten im Kurs können sich zwischen zwei Auswertungen
