@@ -15,7 +15,10 @@
       <nav>
         {% if current_user.is_admin %}<a href="{{ url_for('admin.users') }}">Administration</a>{% endif %}
         <a href="{{ url_for('auth.change_password') }}" class="user" title="Passwort ändern">{{ current_user.display_name }}</a>
-        <a href="{{ url_for('auth.logout') }}">Abmelden</a>
+        <form method="post" action="{{ url_for('auth.logout') }}" class="logout-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="link-button">Abmelden</button>
+        </form>
       </nav>
     {% endif %}
   </header>

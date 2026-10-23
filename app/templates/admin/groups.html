@@ -14,7 +14,7 @@
             <tr>
               <td><a href="{{ url_for('dashboard.detail', dashboard_id=g.id) }}">{{ g.name }}</a></td>
               <td>{{ g.members | map(attribute='display_name') | join(', ') or '–' }}</td>
-              <td class="muted">{% if g.imports %}{{ g.imports[0].imported_at.strftime('%d.%m.%Y') }}{% else %}–{% endif %}</td>
+              <td class="muted">{% if g.imports %}{{ (g.imports[0].imported_at|localtime).strftime('%d.%m.%Y') }}{% else %}–{% endif %}</td>
               <td><a href="{{ url_for('admin.edit_group', group_id=g.id) }}">Bearbeiten</a></td>
             </tr>
           {% endfor %}

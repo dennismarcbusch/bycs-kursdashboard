@@ -61,7 +61,9 @@
             {% if topic.tag %}<code>#{{ topic.tag }}</code>{% endif %}
             <span class="muted">({{ topic_counts[topic.id] }} Aktivitäten)</span>
             <form method="post" action="{{ url_for('topics.delete', dashboard_id=dashboard.id, topic_id=topic.id) }}"
-                  style="display:inline" onsubmit="return confirm('Themenbereich \'{{ topic.name }}\' löschen? Zugeordnete Aktivitäten werden zu \'Sonstige\' oder bilden einen Bereich nach ihrem Hashtag.');">
+                  style="display:inline"
+                  data-confirm="Themenbereich '{{ topic.name }}' löschen? Zugeordnete Aktivitäten werden zu 'Sonstige' oder bilden einen Bereich nach ihrem Hashtag."
+                  onsubmit="return confirm(this.dataset.confirm);">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" class="link-danger">Löschen</button>
             </form>

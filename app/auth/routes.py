@@ -1,7 +1,7 @@
 from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from app.auth.decorators import current_user, login_required
+from app.auth.decorators import current_user, log_in, login_required
 from app.extensions import db
 from app.models import User
 
@@ -15,8 +15,17 @@ _DUMMY_HASH = generate_password_hash("dummy-password-for-timing")
 
 
 def _safe_next(target: str | None) -> str:
-    """Nur interne Ziele zulassen (kein Open Redirect)."""
-    if target and target.startswith("/") and not target.startswith("//"):
+    """Nur interne Ziele zulassen (kein Open Redirect).
+
+    Browser lesen "/\\host" wie "//host" und ignorieren Tabs/Zeilenumbrüche, daher sind
+    Backslashes und Steuer-/Leerzeichen grundsätzlich ausgeschlossen."""
+    if (
+        target
+        and target.startswith("/")
+        and not target.startswith("//")
+        and "\\" not in target
+        and not any(ord(ch) <= 0x20 or ord(ch) == 0x7F for ch in target)
+    ):
         return target
     return url_for("dashboard.list_dashboards")
 
@@ -40,8 +49,7 @@ def dev_login():
         db.session.add(user)
         db.session.commit()
 
-    session.clear()
-    session["user_id"] = user.id
+    log_in(user)
     return redirect(url_for("dashboard.list_dashboards"))
 
 
@@ -59,8 +67,7 @@ def login():
                 "auth/login.html", dev_login_enabled=current_app.config["DEV_LOGIN_ENABLED"]
             )
 
-        session.clear()
-        session["user_id"] = user.id
+        log_in(user)
         return redirect(_safe_next(request.args.get("next")))
 
     return render_template(
@@ -68,7 +75,7 @@ def login():
     )
 
 
-@bp.route("/logout")
+@bp.route("/logout", methods=["POST"])
 def logout():
     session.clear()
     return redirect(url_for("auth.login"))
@@ -91,6 +98,7 @@ def change_password():
         else:
             user.password_hash = generate_password_hash(new)
             db.session.commit()
+            log_in(user)  # diese Sitzung bleibt gültig, alle anderen sind damit abgemeldet
             flash("Passwort geändert.", "success")
             return redirect(url_for("dashboard.list_dashboards"))
     return render_template("auth/password.html")

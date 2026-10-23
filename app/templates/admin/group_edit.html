@@ -28,7 +28,8 @@
   </div>
 
   <form method="post" action="{{ url_for('admin.delete_group', group_id=group.id) }}"
-        onsubmit="return confirm('Klassengruppe {{ group.name }} inkl. aller Importe wirklich löschen?');">
+        data-confirm="Klassengruppe '{{ group.name }}' inkl. aller Importe wirklich löschen?"
+        onsubmit="return confirm(this.dataset.confirm);">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <button type="submit" class="button button-danger">Klassengruppe löschen</button>
   </form>

@@ -27,7 +27,8 @@ def _check_csrf():
         return
     expected = session.get("_csrf", "")
     sent = request.form.get("csrf_token") or request.headers.get("X-CSRF-Token", "")
-    if not expected or not hmac.compare_digest(expected, sent):
+    # Als Bytes vergleichen: compare_digest wirft bei Nicht-ASCII-Strings einen TypeError.
+    if not expected or not hmac.compare_digest(expected.encode(), sent.encode()):
         abort(400, "Ungültiges oder fehlendes CSRF-Token. Seite neu laden und erneut versuchen.")
 
 

@@ -27,7 +27,8 @@ def test_login_logout_and_wrong_password(app, client):
     assert resp.status_code == 302
     assert client.get("/").status_code == 200
 
-    client.get("/logout")
+    assert client.get("/logout").status_code == 405  # nur per POST (mit CSRF-Token)
+    client.post("/logout")
     assert client.get("/").status_code == 302
 
 
@@ -37,6 +38,79 @@ def test_login_redirect_only_internal(app, client):
         "/login?next=//evil.example", data={"username": "lehrer", "password": "passwort123"}
     )
     assert resp.headers["Location"] == "/"
+
+
+def test_login_redirect_rejects_backslash_and_control_chars(app, client):
+    make_user("lehrer")
+    for target in ("/\\evil.example", "/\t/evil.example", "/%0a"):
+        resp = client.post(
+            "/login", query_string={"next": target},
+            data={"username": "lehrer", "password": "passwort123"},
+        )
+        expected = "/%0a" if target == "/%0a" else "/"
+        assert resp.headers["Location"] == expected, target
+
+
+def test_password_change_by_admin_ends_other_sessions(app):
+    user = make_user("lehrer")
+    make_user("chef", admin=True)
+    teacher = app.test_client()
+    login(teacher, "lehrer")
+    assert teacher.get("/").status_code == 200
+
+    admin = app.test_client()
+    login(admin, "chef")
+    admin.post(
+        f"/admin/users/{user.id}",
+        data={"display_name": "Lehrer", "password": "ganz-neues-pw", "is_active": "1"},
+    )
+    assert teacher.get("/").status_code == 302
+
+
+def test_own_password_change_keeps_current_session(app, client):
+    make_user("lehrer")
+    other = app.test_client()
+    login(client, "lehrer")
+    login(other, "lehrer")
+    client.post(
+        "/account/password",
+        data={"old_password": "passwort123", "new_password": "neues-pw-123", "repeat_password": "neues-pw-123"},
+    )
+    assert client.get("/").status_code == 200
+    assert other.get("/").status_code == 302
+
+
+def test_csrf_token_with_non_ascii_is_rejected_cleanly(app, client):
+    app.config["CSRF_ENABLED"] = True
+    client.get("/login")
+    resp = client.post("/login", data={"username": "x", "password": "y", "csrf_token": "ä"})
+    assert resp.status_code == 400
+
+
+def test_confirm_dialog_does_not_execute_topic_name(app, client):
+    from app.models import Topic
+
+    make_user("chef", admin=True)
+    cd = _group("Klasse")
+    db.session.add(Topic(class_dashboard=cd, name="x');alert(1);//"))
+    db.session.commit()
+    login(client, "chef")
+    page = client.get(f"/dashboards/{cd.id}/topics").get_data(as_text=True)
+    assert "alert(1)" not in page.split("onsubmit=")[1].split(">")[0]
+    # Der Name steht escaped nur im data-Attribut und wird nie als JavaScript ausgewertet.
+    assert "data-confirm=\"Themenbereich 'x&#39;);alert(1);//' löschen?" in page
+    assert "onsubmit=\"return confirm(this.dataset.confirm);\"" in page
+
+
+def test_insecure_secret_key_is_replaced(tmp_path):
+    class Cfg(TestConfig):
+        TESTING = False
+        SECRET_KEY = "change-me-to-a-random-value"
+        SQLALCHEMY_DATABASE_URI = f"sqlite:///{tmp_path / 'k.db'}"
+
+    application = create_app(config_object=Cfg)
+    assert application.config["SECRET_KEY"] not in ("", "change-me-to-a-random-value")
+    assert len(application.config["SECRET_KEY"]) == 64
 
 
 def test_inactive_user_cannot_login_and_is_logged_out_immediately(app, client):

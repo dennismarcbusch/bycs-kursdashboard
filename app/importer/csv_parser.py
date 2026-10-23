@@ -86,7 +86,7 @@ def _locate_activity_columns(header: list[str]) -> list[tuple[str, int, int | No
         i += 1
 
     activities: list[tuple[str, int, int | None]] = []
-    seen_counts: dict[str, int] = {}
+    seen_names: set[str] = set()
 
     while i < len(header):
         label = header[i].strip()
@@ -94,8 +94,7 @@ def _locate_activity_columns(header: list[str]) -> list[tuple[str, int, int | No
             i += 1
             continue
 
-        seen_counts[label] = seen_counts.get(label, 0) + 1
-        name = label if seen_counts[label] == 1 else f"{label} ({seen_counts[label]})"
+        name = _unique(label, seen_names)
 
         status_idx = i
         timestamp_idx = None
@@ -118,10 +117,17 @@ def _is_completed(value: str) -> bool:
     return value.strip().lower() in COMPLETED_VALUES
 
 
-def _unique(name: str, seen: dict[str, int]) -> str:
-    """Macht mehrfach vorkommende Namen eindeutig ("Name", "Name (2)", ...)."""
-    seen[name] = seen.get(name, 0) + 1
-    return name if seen[name] == 1 else f"{name} ({seen[name]})"
+def _unique(name: str, seen: set[str]) -> str:
+    """Macht mehrfach vorkommende Namen eindeutig ("Name", "Name (2)", ...).
+
+    Prüft gegen alle bereits vergebenen Namen, damit auch ein echter Name wie "Name (2)"
+    nicht mit einer Nummerierung kollidiert (sonst Verletzung des Unique-Constraints)."""
+    candidate, n = name, 1
+    while candidate in seen:
+        n += 1
+        candidate = f"{name} ({n})"
+    seen.add(candidate)
+    return candidate
 
 
 def import_csv(class_dashboard, file_stream, original_filename=None, source="upload") -> Import:
@@ -138,8 +144,10 @@ def import_csv(class_dashboard, file_stream, original_filename=None, source="upl
     raw = file_stream.read()
     text = _decode(raw) if isinstance(raw, bytes) else raw
 
-    reader = csv.reader(io.StringIO(text), delimiter=",")
-    rows = list(reader)
+    try:
+        rows = list(csv.reader(io.StringIO(text), delimiter=","))
+    except csv.Error as exc:  # z. B. NUL-Bytes oder übergroße Felder
+        raise CsvParseError(f"Die Datei ist keine gültige CSV-Datei ({exc}).") from exc
     if not rows:
         raise CsvParseError("Die CSV-Datei ist leer.")
 
@@ -155,7 +163,7 @@ def import_csv(class_dashboard, file_stream, original_filename=None, source="upl
         db.session.add(activity)
         activities.append((activity, status_idx, timestamp_idx))
 
-    seen_names: dict[str, int] = {}
+    seen_names: set[str] = set()
     imported_rows = 0
     for row in rows[1:]:
         if not row or not row[0].strip():

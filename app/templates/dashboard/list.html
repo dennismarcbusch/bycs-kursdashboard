@@ -14,7 +14,7 @@
         <a class="card card-link" href="{{ url_for('dashboard.detail', dashboard_id=d.id) }}">
           <h2>{{ d.name }}</h2>
           {% if d.imports %}
-            <p class="muted">Letzter Import: {{ d.imports[0].imported_at.strftime('%d.%m.%Y %H:%M') }}</p>
+            <p class="muted">Letzter Import: {{ (d.imports[0].imported_at|localtime).strftime('%d.%m.%Y %H:%M') }}</p>
           {% else %}
             <p class="muted">Noch kein CSV importiert</p>
           {% endif %}

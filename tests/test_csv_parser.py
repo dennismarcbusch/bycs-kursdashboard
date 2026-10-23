@@ -98,6 +98,27 @@ def test_duplicate_student_names_are_kept_apart(app):
     assert len(imp.records) == 2
 
 
+def test_numbering_does_not_collide_with_real_names(app):
+    cd = _make_dashboard()
+    csv_text = (
+        ",E-Mail-Adresse,A,A (2),A\n"
+        "Max,x,Abgeschlossen,Abgeschlossen,Abgeschlossen\n"
+        "Max (2),x,Abgeschlossen,Abgeschlossen,Abgeschlossen\n"
+        "Max,x,Abgeschlossen,Abgeschlossen,Abgeschlossen\n"
+    )
+    imp = import_csv(cd, io.StringIO(csv_text))
+    db.session.commit()
+    assert [a.name for a in imp.activities] == ["A", "A (2)", "A (3)"]
+    assert sorted(s.full_name for s in imp.students) == ["Max", "Max (2)", "Max (3)"]
+
+
+def test_invalid_csv_raises_parse_error(app):
+    cd = _make_dashboard()
+    with pytest.raises(CsvParseError):
+        # Feld größer als csv.field_size_limit() -> csv.Error, darf nicht als 500 enden.
+        import_csv(cd, io.StringIO(",E-Mail-Adresse,A\nAnna,x," + "x" * 200_000 + "\n"))
+
+
 def test_bom_and_alternate_encoding_are_handled(app):
     cd = _make_dashboard()
     content = ",E-Mail-Adresse,Checkliste A\nMüller,xxx,Abgeschlossen\n"

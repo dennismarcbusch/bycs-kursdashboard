@@ -33,7 +33,8 @@
   </div>
 
   <form method="post" action="{{ url_for('admin.delete_user', user_id=user.id) }}"
-        onsubmit="return confirm('Benutzer {{ user.username }} wirklich löschen?');">
+        data-confirm="Benutzer '{{ user.username }}' wirklich löschen?"
+        onsubmit="return confirm(this.dataset.confirm);">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <button type="submit" class="button button-danger">Benutzer löschen</button>
   </form>

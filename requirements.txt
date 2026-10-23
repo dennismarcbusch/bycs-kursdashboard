@@ -3,3 +3,4 @@ Flask-SQLAlchemy>=3.1,<4.0
 gunicorn>=21.2,<22.0
 ldap3>=2.9,<3.0
 python-dotenv>=1.0,<2.0
+tzdata>=2024.1

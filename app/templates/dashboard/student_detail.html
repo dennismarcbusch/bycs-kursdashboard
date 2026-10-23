@@ -39,7 +39,7 @@
       <div class="stat-sub">
         {% if detail.target.set and not detail.target.missing %}davon {{ detail.due_count }} fällig &middot; {% endif %}
         {% if detail.gap_count %}{{ detail.gap_count }} Lücke{{ 'n' if detail.gap_count != 1 }}{% else %}keine Lücken{% endif %}
-        {% if detail.delta is not none %}&middot; seit {{ detail.previous_import_at.strftime('%d.%m.') }}: {{ '+' if detail.delta > 0 else '' }}{{ detail.delta }}{% endif %}
+        {% if detail.delta is not none %}&middot; seit {{ (detail.previous_import_at|localtime).strftime('%d.%m.') }}: {{ '+' if detail.delta > 0 else '' }}{{ detail.delta }}{% endif %}
       </div>
     </div>
   </div>

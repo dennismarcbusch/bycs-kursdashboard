@@ -1,19 +1,26 @@
 import os
+import secrets
+from datetime import timezone
+from zoneinfo import ZoneInfo
 
 import click
 from dotenv import load_dotenv
-from flask import Flask
-from werkzeug.security import generate_password_hash
 
-from app.config import Config
-from app.extensions import db
-
+# Vor dem Import von app.config laden: Config liest die Umgebung beim Import.
 load_dotenv()
+
+from flask import Flask  # noqa: E402
+from sqlalchemy.exc import IntegrityError, OperationalError  # noqa: E402
+from werkzeug.security import generate_password_hash  # noqa: E402
+
+from app.config import INSECURE_SECRET_KEYS, Config  # noqa: E402
+from app.extensions import db  # noqa: E402
 
 
 def create_app(config_object=Config):
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_object(config_object)
+    _ensure_secret_key(app)
 
     os.makedirs(app.instance_path, exist_ok=True)
     app.config.setdefault(
@@ -38,10 +45,26 @@ def create_app(config_object=Config):
     app.register_blueprint(topics_bp)
 
     init_csrf(app)
+    display_tz = ZoneInfo(app.config["DISPLAY_TIMEZONE"])
+
+    @app.template_filter("localtime")
+    def localtime(value):
+        """Gespeicherten UTC-Zeitpunkt in Ortszeit umrechnen (SQLite liefert ihn ohne Zone)."""
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(display_tz)
+
     app.context_processor(lambda: {"current_user": current_user()})
 
     with app.app_context():
-        db.create_all()
+        try:
+            db.create_all()
+        except OperationalError:
+            # Mehrere Worker starten gleichzeitig; ein anderer hat die Tabellen schon angelegt.
+            db.session.rollback()
+            db.create_all()
         _bootstrap_admin(app)
 
     @app.cli.command("create-admin")
@@ -69,6 +92,24 @@ def create_app(config_object=Config):
     return app
 
 
+def _ensure_secret_key(app):
+    """Ohne echtes SECRET_KEY könnte jeder ein Sitzungscookie (z. B. als Admin) fälschen.
+
+    Fehlt der Schlüssel oder ist es ein bekannter Platzhalter, wird ein zufälliger erzeugt.
+    Sitzungen überleben dann keinen Neustart - daher die Warnung."""
+    key = app.config.get("SECRET_KEY")
+    if key and key not in INSECURE_SECRET_KEYS:
+        return
+    if app.testing:
+        return
+    app.config["SECRET_KEY"] = secrets.token_hex(32)
+    app.logger.warning(
+        "SECRET_KEY fehlt oder ist ein Platzhalter; es wird ein zufälliger Schlüssel genutzt. "
+        "Für dauerhafte Sitzungen SECRET_KEY setzen (z. B. python -c "
+        "\"import secrets; print(secrets.token_hex(32))\")."
+    )
+
+
 def _bootstrap_admin(app):
     """Legt beim allerersten Start einen Admin aus ADMIN_USERNAME/ADMIN_PASSWORD an."""
     from app.models import User
@@ -85,7 +126,12 @@ def _bootstrap_admin(app):
             is_admin=True,
         )
     )
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # Ein parallel startender Worker hat den Admin bereits angelegt.
+        db.session.rollback()
+        return
     app.logger.warning(
         "Erst-Admin '%s' angelegt. ADMIN_PASSWORD jetzt aus der Umgebung entfernen.", username
     )

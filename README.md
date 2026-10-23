@@ -88,7 +88,9 @@ Alle Einstellungen erfolgen über Umgebungsvariablen (siehe `.env.example`):
 
 | Variable | Bedeutung |
 |---|---|
-| `SECRET_KEY` | Flask Session-Secret, unbedingt in Produktion setzen |
+| `SECRET_KEY` | Flask Session-Secret, unbedingt in Produktion setzen. Fehlt es oder steht noch der Platzhalter, nutzt die App einen Zufallsschlüssel pro Start (alle werden beim Neustart abgemeldet). |
+| `SESSION_COOKIE_SECURE` | `true` hinter HTTPS: Sitzungscookie nur verschlüsselt übertragen |
+| `DISPLAY_TIMEZONE` | Zeitzone für angezeigte Importzeiten (Standard `Europe/Berlin`; gespeichert wird UTC) |
 | `ADMIN_USERNAME` | Benutzername des Erst-Admins (Standard `admin`) |
 | `ADMIN_PASSWORD` | Legt beim allerersten Start (solange es keinen Benutzer gibt) einen Admin mit diesem Passwort an. Danach aus der `.env` entfernen. |
 | `DATABASE_URL` | optional, überschreibt den Standard-SQLite-Pfad (`instance/app.db`) |

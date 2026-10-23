@@ -58,6 +58,12 @@ body {
 .topbar nav { display: flex; align-items: center; gap: 14px; }
 .topbar .user { color: var(--color-muted); }
 .topbar a { color: var(--color-primary); text-decoration: none; }
+.topbar .logout-form { margin: 0; }
+.topbar .link-button {
+  background: none; border: 0; padding: 0; margin: 0; font: inherit;
+  color: var(--color-primary); cursor: pointer; width: auto;
+}
+.topbar .link-button:hover { text-decoration: underline; }
 
 .content {
   max-width: 1000px;

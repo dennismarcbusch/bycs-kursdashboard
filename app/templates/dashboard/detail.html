@@ -8,7 +8,8 @@
       <a class="button" href="{{ url_for('dashboard.upload', dashboard_id=dashboard.id) }}">CSV importieren</a>
       {% if current_user.is_admin %}
         <form method="post" action="{{ url_for('dashboard.delete', dashboard_id=dashboard.id) }}"
-              onsubmit="return confirm('Klassengruppe \'{{ dashboard.name }}\' inkl. aller Importe wirklich löschen?');"
+              data-confirm="Klassengruppe '{{ dashboard.name }}' inkl. aller Importe wirklich löschen?"
+              onsubmit="return confirm(this.dataset.confirm);"
               style="display:inline">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="button button-danger">Löschen</button>
@@ -21,7 +22,7 @@
     <p class="muted">Für diese Klasse wurde noch keine CSV-Datei importiert.</p>
   {% else %}
     <p class="muted">
-      Stand: {{ latest_import.imported_at.strftime('%d.%m.%Y %H:%M') }}
+      Stand: {{ (latest_import.imported_at|localtime).strftime('%d.%m.%Y %H:%M') }}
       &middot; {{ stats.student_count }} Schüler:innen
       &middot; {{ stats.activity_count }} Aktivitäten
     </p>
@@ -116,7 +117,7 @@
       </div>
       <p class="muted rank-legend">
         Durchgezogene Linie = Klassenmedian{% if stats.target.set and not stats.target.missing %}, gestrichelte Linie = Soll-Stand{% endif %}.
-        {% if stats.previous_import_at %}Die Zahl rechts zeigt die neu erledigten Aktivitäten seit dem Import vom {{ stats.previous_import_at.strftime('%d.%m.%Y') }}.{% endif %}
+        {% if stats.previous_import_at %}Die Zahl rechts zeigt die neu erledigten Aktivitäten seit dem Import vom {{ (stats.previous_import_at|localtime).strftime('%d.%m.%Y') }}.{% endif %}
       </p>
     </div>
 
