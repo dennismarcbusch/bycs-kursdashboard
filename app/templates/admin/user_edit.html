@@ -6,6 +6,16 @@
     <a href="{{ url_for('admin.users') }}">&larr; Zurück zur Benutzerliste</a>
   </div>
 
+  {% if locked_until %}
+    <div class="flash flash-error">
+      Login gesperrt bis {{ (locked_until|localtime).strftime('%H:%M') }} Uhr wegen zu vieler Fehlversuche.
+      <form method="post" action="{{ url_for('admin.unlock_user', user_id=user.id) }}" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="button" style="margin:0 0 0 8px;padding:4px 10px">Sperre aufheben</button>
+      </form>
+    </div>
+  {% endif %}
+
   <div class="card card-narrow" style="margin:0 0 20px">
     <form method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

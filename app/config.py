@@ -26,6 +26,15 @@ class Config:
     # Hinter HTTPS auf true setzen, damit das Sitzungscookie nie unverschlüsselt übertragen wird.
     SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "false").lower() == "true"
 
+    # Sperre nach Login-Fehlversuchen (siehe app/auth/throttle.py).
+    LOGIN_MAX_FAILURES = int(os.environ.get("LOGIN_MAX_FAILURES", 5))
+    LOGIN_MAX_FAILURES_PER_IP = int(os.environ.get("LOGIN_MAX_FAILURES_PER_IP", 20))
+    LOGIN_LOCK_MINUTES = int(os.environ.get("LOGIN_LOCK_MINUTES", 15))
+    # Anzahl vorgeschalteter Reverse-Proxys (z. B. 1 hinter nginx). Nur dann wird
+    # X-Forwarded-For ausgewertet - sonst sähe die App nur die Adresse des Proxys und die
+    # IP-Sperre träfe alle gleichzeitig. Ohne Proxy 0 lassen (sonst fälschbar).
+    PROXY_COUNT = int(os.environ.get("PROXY_COUNT", 0))
+
     # Optionaler Erst-Admin: Gibt es noch keinen Benutzer und ist ADMIN_PASSWORD gesetzt,
     # wird beim Start ein Admin mit diesen Werten angelegt. Danach aus der Umgebung entfernen.
     ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")

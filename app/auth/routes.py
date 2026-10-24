@@ -1,6 +1,7 @@
 from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from app.auth import throttle
 from app.auth.decorators import current_user, log_in, login_required
 from app.extensions import db
 from app.models import User
@@ -59,19 +60,35 @@ def login():
         username = request.form.get("username", "").strip().lower()
         password = request.form.get("password", "")
 
+        until = throttle.locked_until(username)
+        if until is not None:
+            flash(
+                "Zu viele fehlgeschlagene Anmeldeversuche. Bitte in "
+                f"{throttle.minutes_until(until)} Minuten erneut versuchen.",
+                "error",
+            )
+            return _login_page(429)
+
         user = User.query.filter_by(username=username).first()
         valid = check_password_hash(user.password_hash if user else _DUMMY_HASH, password)
         if user is None or not valid or not user.is_active:
+            throttle.register_failure(username)
             flash("Login fehlgeschlagen. Bitte Benutzername und Passwort prüfen.", "error")
-            return render_template(
-                "auth/login.html", dev_login_enabled=current_app.config["DEV_LOGIN_ENABLED"]
-            )
+            return _login_page()
 
+        throttle.reset(username)
         log_in(user)
         return redirect(_safe_next(request.args.get("next")))
 
-    return render_template(
-        "auth/login.html", dev_login_enabled=current_app.config["DEV_LOGIN_ENABLED"]
+    return _login_page()
+
+
+def _login_page(status: int = 200):
+    return (
+        render_template(
+            "auth/login.html", dev_login_enabled=current_app.config["DEV_LOGIN_ENABLED"]
+        ),
+        status,
     )
 
 

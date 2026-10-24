@@ -201,3 +201,14 @@ class CompletionRecord(db.Model):
 
     student = db.relationship("Student")
     activity = db.relationship("Activity")
+
+
+class LoginThrottle(db.Model):
+    """Fehlversuche und Sperre je Schlüssel ("user:<name>" oder "ip:<adresse>"),
+    siehe app/auth/throttle.py. Zeitpunkte naiv in UTC."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(200), unique=True, nullable=False)
+    failures = db.Column(db.Integer, nullable=False, default=0)
+    last_failure_at = db.Column(db.DateTime, nullable=True)
+    locked_until = db.Column(db.DateTime, nullable=True)

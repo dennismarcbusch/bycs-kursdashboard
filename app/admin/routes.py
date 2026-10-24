@@ -7,6 +7,7 @@ import re
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from werkzeug.security import generate_password_hash
 
+from app.auth import throttle
 from app.auth.decorators import admin_required, current_user
 from app.auth.routes import MIN_PASSWORD_LENGTH
 from app.extensions import db
@@ -90,6 +91,8 @@ def edit_user(user_id):
                 user.password_hash = generate_password_hash(password)
             user.classes = _selected_groups()
             db.session.commit()
+            if password:
+                throttle.reset(user.username)  # neues Passwort hebt eine Login-Sperre auf
             flash("Benutzer gespeichert.", "success")
             return redirect(url_for("admin.users"))
 
@@ -97,7 +100,19 @@ def edit_user(user_id):
         "admin/user_edit.html",
         user=user,
         groups=ClassDashboard.query.order_by(ClassDashboard.name).all(),
+        locked_until=throttle.user_locked_until(user.username),
     )
+
+
+@bp.route("/users/<int:user_id>/unlock", methods=["POST"])
+@admin_required
+def unlock_user(user_id):
+    user = db.session.get(User, user_id)
+    if user is None:
+        abort(404)
+    throttle.reset(user.username)
+    flash(f"Login-Sperre für '{user.username}' aufgehoben.", "success")
+    return redirect(url_for("admin.edit_user", user_id=user.id))
 
 
 @bp.route("/users/<int:user_id>/delete", methods=["POST"])

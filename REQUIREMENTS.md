@@ -142,7 +142,10 @@ abschließend, nicht zwingend Teil von V1):
 - Zugriff auf eine Klassengruppe nur für zugeordnete Lehrkräfte und Admins (403 sonst).
 - Alle POST-Anfragen sind per CSRF-Token geschützt; Sitzungs-Cookie mit HttpOnly und
   SameSite=Lax; Weiterleitung nach dem Login nur auf interne Ziele.
-- Nicht enthalten: Sperre nach Fehlversuchen, Zwei-Faktor, Passwort-Zurücksetzen per Mail.
+- Sperre nach Fehlversuchen: je Benutzername (Standard 5) und je IP-Adresse (Standard 20)
+  für 15 Minuten, gespeichert in der Datenbank; der Admin kann sie aufheben.
+- Passwortänderung beendet alle anderen Sitzungen des Kontos.
+- Nicht enthalten: Zwei-Faktor, Passwort-Zurücksetzen per Mail.
 - Optional später: Anmeldung per LDAP gegen das UCS-AD (Gruppe "Lehrer"); die Konten würden
   dann beim ersten Login lokal angelegt und vom Admin Klassengruppen zugeordnet.
 

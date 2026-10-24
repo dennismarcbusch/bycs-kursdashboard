@@ -11,6 +11,7 @@ load_dotenv()
 
 from flask import Flask  # noqa: E402
 from sqlalchemy.exc import IntegrityError, OperationalError  # noqa: E402
+from werkzeug.middleware.proxy_fix import ProxyFix  # noqa: E402
 from werkzeug.security import generate_password_hash  # noqa: E402
 
 from app.config import INSECURE_SECRET_KEYS, Config  # noqa: E402
@@ -21,6 +22,9 @@ def create_app(config_object=Config):
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_object(config_object)
     _ensure_secret_key(app)
+    if app.config["PROXY_COUNT"] > 0:
+        n = app.config["PROXY_COUNT"]
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=n, x_proto=n, x_host=n)
 
     os.makedirs(app.instance_path, exist_ok=True)
     app.config.setdefault(
@@ -73,6 +77,7 @@ def create_app(config_object=Config):
     @click.password_option(help="Passwort (mind. 8 Zeichen)")
     def create_admin(username, name, password):
         """Legt einen Admin an oder setzt bei einem bestehenden Konto Passwort und Admin-Recht."""
+        from app.auth import throttle
         from app.auth.routes import MIN_PASSWORD_LENGTH
         from app.models import User
 
@@ -87,6 +92,7 @@ def create_app(config_object=Config):
         user.is_admin = True
         user.is_active = True
         db.session.commit()
+        throttle.reset(username)  # hebt eine Login-Sperre des Kontos auf
         click.echo(f"Admin '{username}' ist eingerichtet.")
 
     return app

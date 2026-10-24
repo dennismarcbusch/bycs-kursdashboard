@@ -90,6 +90,10 @@ Alle Einstellungen erfolgen über Umgebungsvariablen (siehe `.env.example`):
 |---|---|
 | `SECRET_KEY` | Flask Session-Secret, unbedingt in Produktion setzen. Fehlt es oder steht noch der Platzhalter, nutzt die App einen Zufallsschlüssel pro Start (alle werden beim Neustart abgemeldet). |
 | `SESSION_COOKIE_SECURE` | `true` hinter HTTPS: Sitzungscookie nur verschlüsselt übertragen |
+| `LOGIN_MAX_FAILURES` | Fehlversuche je Benutzername bis zur Sperre (Standard `5`). Gilt auch für nicht existierende Namen. |
+| `LOGIN_MAX_FAILURES_PER_IP` | Fehlversuche je IP-Adresse bis zur Sperre (Standard `20`) |
+| `LOGIN_LOCK_MINUTES` | Dauer der Sperre in Minuten (Standard `15`); so lange zählen auch Fehlversuche. Ein Admin hebt sie unter Administration → Benutzer auf, ebenso ein neues Passwort oder `flask create-admin`. |
+| `PROXY_COUNT` | Anzahl vorgeschalteter Reverse-Proxys (z. B. `1` hinter nginx), damit die echte Client-IP zählt. Ohne Proxy `0` lassen. |
 | `DISPLAY_TIMEZONE` | Zeitzone für angezeigte Importzeiten (Standard `Europe/Berlin`; gespeichert wird UTC) |
 | `ADMIN_USERNAME` | Benutzername des Erst-Admins (Standard `admin`) |
 | `ADMIN_PASSWORD` | Legt beim allerersten Start (solange es keinen Benutzer gibt) einen Admin mit diesem Passwort an. Danach aus der `.env` entfernen. |
@@ -110,8 +114,8 @@ Alle Einstellungen erfolgen über Umgebungsvariablen (siehe `.env.example`):
   ein manuelles Migrieren/Neuanlegen der SQLite-Datei (zuletzt geändert: Benutzerverwaltung,
   Klassengruppen und Soll-Stand; eine ältere `instance/app.db` muss gelöscht werden, die
   Datenbank wird beim Start neu angelegt).
-- Der Login hat keine Sperre nach Fehlversuchen und keinen Passwort-Reset per Mail; ein
-  vergessenes Passwort setzt der Admin zurück.
+- Kein Passwort-Reset per Mail; ein vergessenes Passwort setzt der Admin zurück. Nach
+  zu vielen Fehlversuchen ist der Login zeitweise gesperrt (siehe `LOGIN_*` oben).
 - Jeder Import ersetzt den Stand komplett (Schüler:innen, Aktivitäten in CSV-Reihenfolge,
   Abschlüsse); aufbewahrt werden nur die letzten zwei Importe. Dauerhaft bleiben Klassen,
   Themenbereiche und deren Zuordnung (über den Aktivitätsnamen). Wird eine Aktivität in
